@@ -1,0 +1,126 @@
+* roles
+
+#+begin_src sh
+  $ROLES_PATH ="
+  > ~/.ansible/roles,
+  > /usr/share/ansible/roles,
+  > /etc/ansible/roles"
+
+#+end_src
+
+~ansible-galaxy init my_new_role~
+
+** example task/template in a role
+Task calls template
+~cat roles/motd/tasks/main.yml~
+#+begin_src yaml
+  ---
+  # tasks file for motd
+
+  - name: deliver motd file
+    template:
+      src: motd.j2
+      dest: /etc/motd
+      owner: root
+      group: root
+      mode: 0444
+
+#+end_src
+
+Template calls cutom var
+~cat roles/motd/templates/motd.j2~
+#+begin_src jinja2
+  This is the system {{ ansible_facts['hostname'] }}.
+
+  Today's date is: {{ ansible_facts['date_time']['date'] }}.
+
+  Only use this system with permission.
+  You can ask {{ system_owner }} for access. {# custom var here #}
+
+#+end_src
+
+Default value for ~{{ system_owner }}~ is set in defaults file
+~cat roles/motd/defaults/main.yml~
+#+begin_src yaml
+  ---
+  system_owner: user@host.example.com
+
+#+end_src
+
+** Dependencies
+~cat roles/my_role/meta/main.yml~
+#+begin_src yaml
+  ---
+  dependencies:
+    - role: apache
+      port: 8080
+    - role: postgres
+      dbname: serverlist
+      admin_user: felix
+
+#+end_src
+
+** Using a role in a playbook
+
+~cat use-motd-role.yml~
+#+begin_src yaml
+  ---
+  - name: use motd role playbook
+    hosts: remote.example.com
+    remote_user: devops
+    become: true
+    vars:
+      system_owner: someone@host.example.com # replaces any default var
+    roles:
+      - motd
+      # OR
+      system_owner: someone@host.example.com # very high precedence
+
+#+end_src
+
+* Ansible Galaxy
+Search repo Entreprise Linux for 'redis'
+~ansible-galaxy search 'redis' --platforms EL~
+
+Get info on role from role's ~meta/main.yml~
+~ansible-galaxy info geerlingguy.redis~
+
+
+Install role, overriding default ~$ANSIBLE_ROLES_PATH~
+~ansible-galaxy install geerlingguy.redis -p roles~
+
+List installed roles
+~ansible-galaxy list~
+
+Remove locally installed role
+~ansible-galaxy remove geerlingguy.redis~
+** req file, git, other source
+Install role but from a ~requirements.yml~ file
+~ansible-galaxy install -r roles/requirements.yml -p roles~
+
+#+begin_src yaml
+  ---
+  - src: geerlingguy.redis
+    version: "1.5.0" # important
+    name: redis_prod # overrides local name: roles/redis_prod/
+
+  # from any Git-based repository, using HTTPS
+  - src: https://gitlab.com/guardianproject-ops/ansible-nginx-acme.git
+    scm: git
+    version: 56e00a54
+    name: nginx-acme
+
+  # from any Git-based repository, using SSH
+  - src: git@gitlab.com:guardianproject-ops/ansible-nginx-acme.git
+    scm: git
+    version: master
+    name: nginx-acme-ssh
+
+
+  # from a role tar ball, given a URL;
+  #   supports 'http', 'https', or 'file' protocols
+  - src: file:///opt/local/roles/myrole.tar
+    name: myrole
+
+#+end_src
+

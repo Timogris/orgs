@@ -1,0 +1,7 @@
+- name: connect to internet web server
+  uri:
+    url: "http://serverb.lab.example.com"
+    status_code: 200
+    user: your_user
+    password: password
+    validate_certs: no

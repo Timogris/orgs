@@ -1,0 +1,128 @@
+* conditions
+
+| Equal (str)          | ansible_machine == "x86_64" |
+|----------------------+-----------------------------|
+| Equal (int)          | max_memory == 512           |
+|----------------------+-----------------------------|
+| var exists           | min_memory is defined       |
+|----------------------+-----------------------------|
+| var does not exist   | min_memory is not defined   |
+|----------------------+-----------------------------|
+| bool is true         | memory_available            |
+| (true, 1, yes)       |                             |
+|----------------------+-----------------------------|
+| bool is false        | not memory_available        |
+| (false, 0, no)       |                             |
+|----------------------+-----------------------------|
+| First var is present | ansible_distributon in      |
+| in second var's list | supported_distros           |
+
+** simple bool example
+
+#+begin_src yaml
+  ---
+  - name: Simple bool
+    hosts: all
+    vars:
+      run_my_task: true
+
+    tasks:
+      - name: httpd package is installed
+        yum:
+          name: httpd
+          when: run_my_task # true, will run
+          
+#+end_src
+
+** 'var is defined' example
+
+#+begin_src yaml
+  ---
+  - name: Test variable is defined
+    hosts: all
+    vars:
+      my_service: httpd
+
+    tasks:
+      - name: "{{ my_service }} package is installed"
+        yum:
+          name: "{{ my_service }}"
+        when: my_service is defined # will not run if my_service is null
+        
+#+end_src
+
+** 'var1 in var2' example
+
+Dans cet exemple `ansible_distribution` est un fact recolte par `gather_facts`
+ou l'OS est defini
+
+#+begin_src yaml
+  ---
+  - name: Demonstrate 'in' keyword
+    hosts: all
+    gather_facts: yes
+    vars:
+      supported_distros:
+        - RedHat
+        - Fedora
+    tasks:
+      - name: Install httpd using yum, where supported
+        yum:
+          name: httpd
+          state: present
+        when: ansible_distribution in supported_distros
+
+#+end_src
+
+** testing multiple conditions
+
+#+begin_src yaml
+  when: ansible_distribution == "RedHat" or ansible_distribution == "Fedora"
+
+  when: ansible_distribution_version == "7.5" and ansible_kernel == "3.10.0-327.el7.x86_64"
+  # vvvvv
+  when:
+  - ansible_distribution_version == "7.5"
+  - ansible_kernel == "3.10.0-327.el7.x86_64"
+
+  when: >
+    ( ansible_distribution == "RedHat" and
+      ansible_distribution_major_version == "7" )
+    or
+    ( ansible_distribution == "Fedora" and
+    ansible_distribution_major_version == "28" )
+#+end_src
+
+** conditions in loops
+
+~when~ is applied on each iteration
+#+begin_src yaml
+  - name: install mariadb-server if enough space on root
+    yum:
+      name: mariadb-server
+      state: latest
+    loop: "{{ ansible_mounts }}"
+    when: item.mount == "/" and item.size_available > 300000000
+
+#+end_src
+
+** conditions through register
+Redemarre ~httpd~ si postfix est actif:
+
+#+begin_src yaml
+  ---
+  - name: Restart HTTPD if Postfix is Running
+    hosts: all
+    tasks:
+      - name: Get Postfix server status
+        command: /usr/bin/systemctl is-active postfix 1
+        ignore_errors: yes2
+        register: result3
+
+      - name: Restart Apache HTTPD based on Postfix status
+        service:
+          name: httpd
+          state: restarted
+        when: result.rc == 0
+
+#+end_src

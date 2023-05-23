@@ -1,0 +1,116 @@
+* storage
+** ~parted~ module
+some args:
+- align :: partition alignment
+- device :: block device
+- flags :: partition flags
+- number :: partition number
+- part_end :: end of partition
+- state :: present/absent
+- unit :: size units for partition info
+
+#+begin_src yaml
+  - name: New /dev/vdb1 10GB partition
+    parted:
+      device: /dev/vdb
+      number: 1
+      state: present
+      part_end: 10GB
+
+#+end_src
+
+** LVM
+*** ~lvg~
+takes the block devices to configure as args. Configures them as back end physical volumes for the volume group.
+some args:
+- pesize :: size of physical extents, must be ^2 of a multiple of 128KiB
+- pvs :: list of physical volumes to be configured for the volume group
+- vg :: name of volume group
+- state :: present/absent
+
+#+begin_src yaml
+  - name: creates a volume group
+    lvg:
+      vg: vg1
+      pvs: /dev/vda1
+      pesize: 32
+
+#+end_src
+
+In below example, if vg1 volume group is already configured with /dev/vdb1 as physical volume, the volume is enlarged with /dev/vdc1.
+#+begin_src yaml
+  - name: Resize a volume group
+    lvg:
+      vg: vg1
+      pvs: /dev/sdb1, /dev/vdc1
+
+#+end_src
+
+*** ~lvol~
+creates, resizes logical volumes, as well as configure filesystems on them. Supports the creation of snapshots of those volumes.
+some args:
+- lv :: name of the logical volume
+- resizefs :: resize filesystem with the volume
+- shrink
+- size :: size of the logical volume
+- snapshot :: name for the snapshot of the LV
+- state :: create or remove logical volume
+- vg :: parent VG of the logical volume
+
+#+begin_src yaml
+  - name: Create LV of 2GB
+    lvol:
+      vg: vg1
+      lv: lv1
+      size: 2g
+    when: lv1 not in ansible_lvm['lvs']
+
+#+end_src
+
+*** ~filesystem~ module
+supports creation and resizing of a fs. Support resizing for: ext2, ext3, ext4, ext4dev, f2fs, lvm, xfs, vfat
+args:
+- dev :: block device name
+- fstype
+- resizefs
+
+#+begin_src yaml
+  - name: Create XFS fs
+    filesystem:
+      fstype: xfs
+      dev: /dev/vdb1
+
+#+end_src
+
+** ~mount~ module
+support mount points on /etc/fstab.
+args:
+- fstype
+- opts :: mount options
+- path
+- src :: device to be mounted
+- state :: present (mounted),absent
+
+#+begin_src yaml
+  - name: mount device from ID
+    mount:
+      path: /data
+      src: UUID=a8063676-44dd-409a-b584-68be2c9f5570
+      fstype: xfs
+      state: present
+
+  - name: mount NFS share
+    mount:
+      path: /nfsshare
+      src: 172.25.250.100:/share
+      fstype: nfs
+      opts: defaults
+      dump: '0'
+      passno: '0'
+      state: mounted
+
+#+end_src
+
+** ~swap~ -ping
+Ansible does not currently have a module to configure swap partition but:
+~command: mkswap /dev/vgswap~ works.

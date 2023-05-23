@@ -1,0 +1,7 @@
+# https://docs.ansible.com/ansible/latest/collections/index_lookup.html#ansible-builtin
+
+vars:
+  motd_value: "{{ lookup('file', '/etc/motd') }}"
+tasks:
+  - debug:
+      msg: "motd value is {{ motd_value }}"

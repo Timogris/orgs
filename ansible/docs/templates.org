@@ -1,0 +1,143 @@
+* Jinja2 templates
+
+~{% LOGIC %}~
+~{{ RESULT,VAR }}~
+~{# COMMENT #}~
+
+** examples
+Example template config file (use ~.j2~ file extension for visibility, in ~template~ dir preferably)
+#+begin_src
+# {{ ansible_managed }}
+# DO NOT MAKE LOCAL MODIFICATIONS TO THIS FILE AS THEY WILL BE LOST
+
+Port {{ ssh_port }}
+ListenAddress {{ ansible_facts['default_ipv4']['address'] }}
+
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+SyslogFacility AUTHPRIV
+
+PermitRootLogin {{ root_allowed }}
+AllowGroups {{ groups_allowed }}
+
+AuthorizedKeysFile /etc/.rht_authorized_keys .ssh/authorized_keys
+
+PasswordAuthentication {{ passwords_allowed }}
+
+ChallengeResponseAuthentication no
+
+GSSAPIAuthentication yes
+GSSAPICleanupCredentials no
+
+UsePAM yes
+
+X11Forwarding yes
+UsePrivilegeSeparation sandbox
+
+AcceptEnv LANG LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES
+AcceptEnv LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT
+AcceptEnv LC_IDENTIFICATION LC_ALL LANGUAGE
+AcceptEnv XMODIFIERS
+
+Subsystem sftp	/usr/libexec/openssh/sftp-server
+
+#+end_src
+
+Use the template with ~template~ module
+#+begin_src yaml
+  tasks:
+    - name: template render
+      template:
+        src: /tmp/j2-template.j2
+        dest: /tmp/dest-config-file.txt
+        # group:
+        # owner:
+        # etc, just like file module
+
+#+end_src
+
+Set ~ansible_managed = Ansible Managed msg~ special var in ~ansible.cfg~, then invoke it within template with ~{{ ansible_managed }}~.
+
+** loops
+
+Simple loop example
+#+begin_src yaml
+  {# for statement #}
+  {% for myuser in users if not myuser == "root" %}
+  User number {{ loop.index }} - {{ myuser }}
+  {% endfor %}
+
+#+end_src
+Here the template loops through ~users~ var
+each time, if ~myuser~ is not "root", ~myuser~ takes the value
+prints:
+  User number 1 - timo
+  User number 2 - ari
+  User number 3 - mxou
+~loop.index~ increments everytime, starting from 1 at first loop.
+
+Practical example
+#+begin_src yaml
+  - name: /etc/hosts is up to date
+    hosts: all
+    gather_facts: yes
+    tasks:
+      - name: Deploy /etc/hosts
+        template:
+          src: templates/hosts.j2
+          dest: /etc/hosts
+
+#+end_src
+
+
+#+begin_src yaml
+  # templates/hosts.j2
+  {% for myhost in groups['webservers'] %}
+  {{ hostvars[host]['ansible_facts']['default_ipv4']['address'] }} {{ hostvars[host]['ansible_facts']['fqdn'] }} {{ hostvars[host]['ansible_facts']['hostname'] }}
+  {% endfor %}
+
+#+end_src
+Template loops through ~webservers~ host group (which is defined in inventory file). A new line is printed with each iteration with 3 gathered facts in ~/etc/hosts~:
+1) ipadd1 fullyqdn1 hostname1
+2) ipadd2 fullyqdn2 hostname2
+3) ipadd3 fullyqdn3 hostname3
+
+** conditional
+
+Value will be placed in file only if ~finished~ is ~true~
+#+begin_src yaml
+  {% if finished %}
+  {{ result }}
+  {% endif %}
+
+#+end_src
+
+** variable filters
+
+#+begin_src yaml
+  {{ output | to_json }}
+  {{ output | to_yaml }}
+
+  # prettify
+  {{ output | to_nice_json }}
+  {{ output | to_nice_yaml }}
+
+  # expects
+  {{ output | from_json }}
+  {{ output | from_yaml }}
+
+
+#+end_src
+
+** variable tests in ~when~
+~when~ variable tests are actually Jinja2 syntax.
+#+begin_src yaml
+  tasks:
+    ...output...
+    - debug: msg="exec aborted"
+      when: returnvalue is failed
+      # failed, skipped, changed, succeeded
+
+#+end_src

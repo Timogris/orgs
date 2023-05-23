@@ -1,0 +1,7 @@
+- name: Download conf file
+  get_url:
+    url:
+    mode:
+    dest:
+    owner:
+    group:

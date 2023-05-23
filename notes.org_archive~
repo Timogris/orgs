@@ -1,0 +1,20 @@
+#    -*- mode: org -*-
+
+
+Archived entries from file /run/media/timo/masterthief/org/notes.org
+
+
+* TODO script nuits chaudes
+:PROPERTIES:
+:ARCHIVE_TIME: 2023-05-09 Tue 22:28
+:ARCHIVE_FILE: /run/media/timo/masterthief/org/notes.org
+:ARCHIVE_OLPATH: Perso
+:ARCHIVE_CATEGORY: notes
+:ARCHIVE_TODO: TODO
+:END:
+- [X] enable ssh paname
+- [ ] script
+  - [ ] api weather
+  - [ ] parsing
+  - [ ] appending over ssh
+- [ ] enable cron job

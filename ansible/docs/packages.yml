@@ -1,0 +1,91 @@
+---
+tasks:
+  - name: Install httpd
+    yum:
+      name: httpd
+      state: present
+
+  - name: Install or update httpd
+    yum:
+      name: httpd
+      state: latest
+
+  - name: Update all packages
+    yum:
+      name: '*'
+      state: latest
+
+  - name: Remove httpd
+    yum:
+      name: httpd
+      state: absent
+
+  - name: Install Development Tools
+    yum:
+      name: '@Development Tools' # GROUP INSTALL/REMOVE/UPDATE
+      state: present
+
+  - name: Inst perl AppStream module
+    yum:
+      name: '@perl:5.26/minimal'
+      state: present
+
+  # GATHER PACKAGE FACTS WITH MODULE
+  - name: Gather package facts
+    package_facts:
+      manager: auto
+
+  - debug:
+      var: ansible_facts.packages
+
+  # DO vvvvv
+  - name: Install the required packages on the web server
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Install the packages
+        yum:
+          name:
+            - httpd
+            - mod_ssl
+            - httpd-tools
+          state: present
+
+  # DON'T xxxxx
+  - name: Install the required packages on the web server
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Install the packages
+        yum:
+          name: "{{ item }}" # yum module will run 3 times
+          state: present
+        loop:
+          - httpd
+          - mod_ssl
+          - httpd-tools
+
+  # UNCONDITIONAL
+  - name: Install httpd on all systems
+    package: # yum, dnf, apt, zypper
+      name: httpd
+      state: latest
+
+  # DECLARING YUM REPO
+  - name: Configure company Yum repo
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Ensure example repo exists
+        yum_repository:
+          # file to be created in /etc/yum.repos.d/
+          file: example # will append into example.repo
+          name: example-internal
+          description : Example Inc. Internal YUM repo
+          baseurl: http://materials.example.com/yum/repository
+          enabled: yes
+          gpgcheck: yes
+          state: present # deletes repo file if set to 'absent'
+
+      # DEPLOYING GPG KEY FOR SAID REPO
+      - name: Deploy GPG pub key
+        rpm_key:
+          key: http://materials.example.com/yum/repository/RPM-GPG-KEY-example
+          state: present

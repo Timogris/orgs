@@ -1,0 +1,19 @@
+# https://docs.ansible.com/ansible/latest/collections/index_lookup.html#ansible-builtin
+
+vars:
+  motd_value: "{{ lookup('file', '/etc/motd') }}"
+tasks:
+  - debug:
+      msg: "motd value is {{ motd_value }}"
+
+# lookup env vars
+---
+- name:
+  hosts: webservers
+  vars:
+    local_shell: "{{ lookup('env', 'USER', 'HOME', 'SHELL') }}"
+
+  tasks:
+    - name: print specific env vars
+      debug:
+        var: local_shell

@@ -1,0 +1,51 @@
+# imports are processed before playbook exec
+# includes are processed at task runtime
+
+# ansible-playbook --list-tasks
+# each imported task is listed
+# tasks including tasks are printed as :
+# tasks:
+#   - name: prepare webserver
+#     include_tasks: webserver_init.yml
+
+# both are imported playbooks
+- name: Prepare the web server
+  import_playbook: web.yml
+
+- name: Prepare the database server
+  import_playbook: db.yml
+
+
+  
+# u can also interleave plays with imported playbooks
+---
+- name: Play1
+  hosts: localhost
+  tasks:
+    - debug:
+        msg: Play 1
+
+- name: Import Playbook # /!\ Play indentation
+  import_playbook: play2.yml
+
+
+
+# import flat tasks lists
+# cannot use loops
+---
+- name: Install web server
+  hosts: webservers
+  tasks:
+    - import_tasks: webserver_tasks.yml
+
+# webserver_tasks.yml vvvvv
+---
+- name: Installs httpd
+  yum:
+    name: httpd
+    state: latest
+
+- name: Starts httpd
+  service:
+    name: httpd
+    state: started

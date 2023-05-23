@@ -1,0 +1,128 @@
+* debug
+** examples
+#+begin_src yaml
+  ---
+  - name: Installs a package and prints the result
+    hosts: all
+    tasks:
+      - name: Install the package
+        yum:
+          name: httpd
+          state: installed
+        register: install_result
+      
+      - debug:
+          var: install_result # will output {{ install_result }}
+          verbosity: 2
+
+      - name: connect to web server with basic auth
+        uri:
+          url: https://serverb.lab.example.com
+          validate_certs: no
+          force_basic_auth: yes
+          user: "{{ web_user }}"
+          password: "{{ web_pass }}"
+          return_content: yes
+          status_code: 200
+        register: auth_test
+
+      - debug:
+          var: auth_test.content # output auth_test.content
+
+      - name: Display free memory with facts and logic
+        debug:
+          msg: "free mem: {{ ansible_facts['memfree_mb'] }}"
+
+#+end_src
+
+* logging
+Set ~log_path~ in ~ansible.cfg~ under ~[defaults]~
+* CLI
+#+begin_src shell
+  ansible-playbook playbook.yml --syntax-check
+  ansible-playbook playbook.yml --step
+  ansible-playbook playbook.yml --start-at-task="restart httpd"
+
+  ansible-playbook --check playbook.yml
+  ansible-playbook --check --diff playbook.yml
+
+  # check enabled service in firewall
+  ansible [hostname] -u [user] -b -a 'firewall-cmd --list-services'
+#+end_src
+
+** check mode
+!// Might not work if using conditionals
+!/  Risk of making changes to host if certain cases
+#+begin_src yaml
+  tasks:
+    - name: task always in check mode
+      shell: uname -a
+      check_mode: yes #
+
+#+end_src
+
+*** --diff
+reports changes made to the template files on managed hosts, used with --check, changes will not actually be made
+
+* modules
+** ~uri~
+check REST API is returning content
+#+begin_src yaml
+  tasks:
+    - uri:
+        url: http://api.myapp.com
+        return_content: yes
+      register: apiresponse
+
+    - fail:
+        msg: 'version was not provided'
+      when: "'version' not in apiresponse.content"
+#+end_src
+
+** ~script~
+script must exist on control node, and is transferred & executed on the managed hosts
+#+begin_src yaml
+  tasks:
+    - script: check_free_memory
+
+#+end_src
+
+** ~stat~
+gather, register facts & test legitimacy of results. If file does not exist, ~stat~ task will not fail but value of ~*.stat.exists~ will be ~false~
+#+begin_src yaml
+  # check running app
+  tasks:
+    - name: Check if /var/run/app.lock exists
+      stat:
+        path: /var/run/app.lock
+      register: lock
+
+    - name: Fail if the application is running
+      fail:
+      when: lock.stat.exists
+
+#+end_src
+
+** ~assert~
+
+alternative to ~fail~. uses a ~that~ option that supports a list of conditionals. If any of these are false, task fails. Use ~success_msg~ and ~fail_msg~.
+#+begin_src yaml
+  tasks:
+    - name: Check if /var/run/app.lock exists
+      stat:
+        path: /var/run/app.lock
+      register: lock
+
+    - name: Fail if the application is running
+      assert:
+        that:
+          - not lock.stat.exists
+
+#+end_src
+
+* host inventory variable
+~ansible_host~ to "dynamicaly" set hosts
+#+begin_src
+web4.phx.example.com ansible_host=192.0.2.4
+
+#+end_src

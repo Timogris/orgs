@@ -1,0 +1,13 @@
+hosts: lab1,lab2 # list
+
+hosts: lab1,&europe # AND condition
+
+hosts: 'lab1,&172*' # in lab1 and ip addr beginning by 172
+
+hosts: '*example.com,!*lab*' # NOT condition
+
+#
+# ansible '*' -i [inventory] --list-hosts
+#
+
+# ip addr must be defined in inventory file

@@ -1,0 +1,6 @@
+# good practice is to create a [privilege_escalation] in ansible.cfg
+[privilege_escalation]
+become = true
+become_method = sudo
+become_user = root
+become_pass = true

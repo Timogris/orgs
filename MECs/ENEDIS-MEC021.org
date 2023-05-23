@@ -1,0 +1,15 @@
+* ENEDIS Lot4 - MEC021
+
+RTE, Reseau transport energie
+
+Se renseigner sur jenkins avant l'entretien
+COSME assure la conduite RUN (majeur) et rejoint l'equipe en charge du BUILD (mineur)
+
+Cap assure la conduite des infra 
+
+
+** Entretien
+vision scolaire de la chose mais avec mes propositions on m'a confié plus de responsabilités du type les services docker
+
+*** CV
+*TGR*: 3 ans d’expérience intégrant son alternance. Intégrateur DevOps / Développeur Fullstack, développement, installation de services conteneurisés, installation de Self-Managed (Docker), configuration, refonte de GitLab, mise en production de pipeline GitLab d’intégration continue, étude comparative de technologies DevOps existantes et de différents outils (Ansible, Terraform, Kubernetes ; Azure, OVH, AWS) en fonction du besoin de l'entreprise. Profil technophile, basé à Lyon.

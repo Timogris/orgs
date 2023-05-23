@@ -1,0 +1,455 @@
+* Reading OS data
+** release
+~/etc/system-release~ is a symlink through RHEL releases pointing to OS version file.
+
+** kernel
+~uname -r~ : kernel version
+~cat /proc/version~
+
+** boot
+~cat /proc/cmdline~, to pass boot args to kernel. Indicates separate boot partition if applicable.
+
+** devices
+~lsblk~
+
+* Starting and stopping
+~shutdown~, ~halt~ and ~poweroff~.
+Use ~init --help~ and ~telinit~
+#+begin_src bash
+  init 0 # shutdown
+  init 6 # reboot
+
+#+end_src
+
+** Runlevels
+~who -r~ to get current run-level, or ~runlevel~, or ~systemctl get-default~ to get default run-level.
+
+graphical.target : run-level 5
+multi-user.target : run-level 3
+rescue.target : run-level 1 (single-user target)
+
+Set default :
+#+begin_src bash
+  # this disables graphical interface
+  systemctl set-default multi-user.target # graphical.target
+
+#+end_src
+
+You can change run-level at boot (and enter rescue mode) by typing `e` at GRUB boot menu (to edit default boot target) and then adding at EOL beginning with kernel version (linux16 ?) :
+~systemd.unit=rescue.target~
+
+* Booting recovery
+** GRUB Recovery
+Manage GRUB recovery by setting ~GRUB_DISABLE_RECOVERY=false~ (double negation) which is not the same as setting systemd.unit=rescue.target in boot process.
+
+Update grub config with :
+#+begin_src bash
+  grub2-mkconfig -o /boot/grub2/grub.cfg
+  reboot
+#+end_src
+
+** Lost Root Password
+To recover root password, boot to initramfs and edit GRUB entry @ linux16 line and remove ~rhgb~ and ~quiet~ args. Add ~rd.break~ (this ensures system pauses after RAM disk phase, or when system is about to switch /to/ root partition /from/ boot partition) and ~enforcing=0~ so SELinux errors are bypassed (permissive mode).
+Once on switch_root console, set READONLY root filesystem to READ/WRITE by using:
+#+begin_src bash
+  mount -o remount,rw /sysroot # example, could be elsewhere
+  chroot /sysroot
+
+  # change root passwd
+  passwd
+  exit
+
+  # back to switch_root console, set back READONLY
+  mount -o remount,ro /sysroot
+  exit
+
+  # log onto machine with new root pwd
+  # remove GRUB SELinux permissive mode
+  restorecon /etc/shadow # restore context
+  setenforce 1
+#+end_src
+
+* Managing GRUB2
+** (Re)installing
+Install GRUB2 on Master Boot Record partition:
+#+begin_src bash
+  grub2-install /dev/sda # BIOS devices
+  yum reinstall grub2-efi shim # UEFI system
+#+end_src
+
+** Defaults
+/etc/default/grub
+
+*** ~grubby~
+#+begin_src bash
+  grubby --info=ALL
+
+  grubby --info /boot/vmlinuz-3.10.0-327.e17.x86_64 # your kernel here
+  grubby --remove-args="rhgb quiet" --update-kernel !$  
+#+end_src
+
+** Set Encrypted GRUB Password
+User will have to enter password in order to edit GRUB entries during boot process. Use ~grub2-mkpasswd-pbkdf2~ and copy/paste output like so:
+/etc/grub.d/01_users
+#+begin_src bash
+  #!/bin/sh -e
+  cat << EOF
+	set superusers="timot" # not a linux user
+	password_pbkdf2 timot grub.pbkdf2.sha512.10000.01EF2E9E4827E1E9E819F1E237729366C638AF48274E1899075891DA9D2F702EE6135DBC4AEC24A049D47DF42725869673809290A99E615E2DE55449773A7C00.C2A0AC4C0920EC9F1F2569E1FD3E7E7DF96794A29A6D44E5024C67D8ADFCA1F7F6FAEB9A7F339FBACD964F5EFD21FF5B88E971F5E6EDB41262699955C1AB07DD
+  EOF
+#+end_src
+
+** Custom GRUB2 Entries
+/etc/grub.d/40_custom
+#+begin_src conf
+  menuentry 'CentOS Custom' {
+		insmod gzio # module to open zip files
+		insmod part_msdos # mbr module to access mbr partition
+		insmod xfs # filesystem to use modules on
+		set root='hd0,msdos1' # setting root partition
+		linux16 [...] # kernel
+		initrd16 [...].img # ram
+  }
+#+end_src
+
+* Processes
+** ~ps~
+#+begin_src bash
+  ps -e --forest # all procs, in a tree manner
+  ps aux # all procs not in a terminal
+
+  pstree # simpler tree manner
+  ps -f # full listing
+  ps -F # extra full listing
+  ps -l # long listing ._.
+
+  ps -elf | grep sshd
+
+#+end_src
+
+** ~/proc~ and ~$$~
+~$$~ is current process.
+~ps -p $$ -F~ lists extra full listing of current process identified by PID.
+
+#+begin_src bash
+  cd $$ # /proc/${$}
+  ls -l cwd # current working directory
+  ls -l exe # executable
+
+  cat /proc/loadavg
+  # load over last
+  # 1min 5min 15min, nb of procs, proc nb
+
+#+end_src
+
+** ~kill~
+list signals with ~kill -l~
+
+#+begin_src bash
+  kill -15 [pid]
+  kill -sigterm [pid]
+  kill -term [pid]
+
+  kill -9 [pid]
+  kill -sigkill [pid]
+  kill -kill [pid]
+
+#+end_src
+
+** ~pgrep~ and ~pkill~
+#+begin_src bash
+  pgrep sshd # lists sshds procs PIDs
+  ps -F -p $(pgrep sshd) # gets exfull listing of sshd procs by PID
+
+  sleep 100&
+  sleep 100&
+  sleep 100& # use '&' to launch proc in background
+  pgrep sleep # now has 3 procs running
+  pkill sleep # kills all 3 procs
+#+end_src
+
+** background tasks
+`&`
+#+begin_src bash
+  sleep 1000&
+
+  jobs # checks bg and paused (C-z) procs in current shell
+  bg # resume paused proc8 and put it in bg
+  fg # bring to fg
+
+  fg 1 # brings nb.1 proc from `jobs`
+
+
+#+end_src
+
+** Nice and priority
+Nice, less is higher prio : {-20..19}
+Priority, less is higher prio : {60..99}
+#+begin_src bash
+  nice -n 5 firefox&
+  renice -n 10 -p [pid]
+  
+
+#+end_src
+
+set limits in /etc/security/limits.conf v
+~timo - priority 10~
+
+* Monitoring
+/proc/loadavg shows cpu charge over the last 1, 5, 15 min.
+** ~pmap~ & ~pwdx~
+memory map of process PID, shared libs used are in there too.
+
+maps path (pwd) of process PID (ex: ~pwdx $(pgrep sshd)~ returns ~10: /~, PID: pwd)
+
+** ~uptime~ &  ~lscpu~ & ~tload~
+reads ~/proc/uptime~, and ~/proc/loadavg~. ~watch -n 4 uptime~ to show uptime every 4 seconds. ~tload~ does exactly this. if a number on loadavg begins to go beyond 1.00, processes are being queued.
+~w~ cmd shows users connected as well as loadavg.
+
+~lscpu~ obtain informations on different cpus
+
+** ~top~ and ~vmstat~
+~top -b -n 1 >> file1~ sends one (-n 1) copy to file1 with the (-b)atch arg.
+
+~vmstat -S m~ to show charge of memory, entre autres. we can collect info 3 times over a period of 5 seconds between each iteration with ~vmstat 5 3~
+
+** ~sysstat~, aditional tools & creating reports with ~sar~
+Collects data over a period of time.
+Creates /etc/cron.d/sysstat
+Config is in /etc/sysconfig/sysstat
+Start sysstat as service with systemctl
+~iostat -m 5 3~ shows disk activity in MiB every 5s, 3 times.
+~pidstat -p $$~ collects data about process PID
+~mpstat -P ALL~ to show processor activity
+
+~sar -u~ cpu.
+~-r~ shows memory activity
+~-b~ disk io activity
+~-n~ network
+~-q~ loadavg
+
+~sar -s 14:50:00 -e 15:10:00 -f /var/log/sa/sa15~
+
+/var/log/sa are where system activity logs are
+~sar -f /var/log/sa/sa15~
+
+* Managing shared libraries
+** Viewing
+~ldd $(which ls)~ shows shared libs of cmd ls, kind of like ~pmap~
+
+** Setting location for custom modules 
+base location are /lib and /lib64, which are, in current versions of CentOS, symlinks to /usr/lib and /usr/lib64 respectively (~pwd -P~ shows actual path).
+
+#+begin_src bash
+  mkdir /usr/local/lib/testlib
+  cp /root/libdisplayuid.so !$ # example lib
+  chmod +x !$/displayuid.so
+
+#+end_src
+We then edit a file we created in /etc/ld.so.conf.d/testlib.conf with the path of our custom module
+#+begin_src bash
+  # /etc/ld.so.conf.d/testlib.conf
+  /usr/local/lib/testlib/
+
+#+end_src
+
+* Simple scripting
+append command to variable is possible
+~df -h > $FILE~
+
+~&&~ is actually an IF condition where first condition must success to run the second one.
+to run OR, we use ~||~
+
+* Scheduling
+** cron and anacron and at
+#+begin_src 
+  * * * * * 
+  min hour d-o-m month d-o-w
+
+#+end_src
+crond service
+/etc/crontab
+/etc/cron.d
+
+use MAILTO=[user] in crontab to get output 
+
+#+begin_src bash
+  crontab -l
+  crontab -e
+  crontab -r
+#+end_src
+
+anacron persists after machine restart kindof, it will run T time after bootup
+/etc/anacrontab
+
+at is used for one-off operation
+#+begin_src bash
+  at 13:23 jun 23
+  at noon
+
+  atq # list jobs
+  atrm [job_id] #
+
+#+end_src
+
+* Logging
+** User logins, root access and ~awk~
+#+begin_src bash
+  lastlog # shows most recent login of all users
+  last # shows last logged users
+  lastb # shows last login attempts
+
+#+end_src
+
+/var/log/secure* logs elevating attempts i think
+
+awk parses fields in UNIX files.
+we can use it to parse /var/log/secure* files:
+#+begin_src bash
+  # /var/log
+  awk '/sudo/ { print $5, $6, $14 } ' secure
+
+#+end_src
+Output will be lines where 'sudo' exists, in the secure file. $5, $6 and $14 correspond to the sudo field, the user field and the command field respectively.
+in a script secure.sh:
+#+begin_src bash
+  #!/usr/bin/bash
+  awk "/$1/ { print \$5,\$6,\$14 }" $2
+
+#+end_src
+$1 and $2 are shell arguments. we put \ before awk fields so they are not expanded. Use double quotes so awk vars are not expanded.
+so if we run like ~./secure.sh su: /var/log/secure~
+every line where *su:* is contained will show up with fields 5, 6 and 14 in file /var/log/secure
+** rsyslog
+/etc/rsyslog.conf
+/etc/rsyslog.d
+
+Configure different logging locations for differents logging levels (info,warn,error) for services
+define as so:
+#+begin_src conf
+  local1.info /var/log/local1_logs
+
+#+end_src
+Every log of importance warn and higher for unit local1 will be logged into /var/log/local1_logs. Use like so:
+#+begin_src bash
+  logger -p local1.warn "Test message"
+
+#+end_src
+
+Logging becomes easy to script
+** rotating with logrotate
+/etc/logrotate.conf
+/etc/logrotate.d
+
+runs by default once a day with cron in /etc/cron.daily
+does not need service restart as it is not a service
+configure log type, size, location, etc:
+#+begin_src conf
+  /var/log/timo {
+		missingok # does not create errors if absent
+		notifempty # skip if empty
+		size 1M
+		compress # compress on rotation
+
+  } # run tests with logrotate /etc/logrotate.conf
+
+#+end_src
+
+** logging on systemd
+/etc/systemd/journald.conf
+from CentOS 7
+
+in conf file, apply value "Storage=persistent" to get a persistent logging of boots with:
+~journalctl --list-boots~ (-1 is previous boot)
+~journalctl -b -1~
+
+#+begin_src bash
+  journalctl -f(ollow)
+  journalctl -u sshd.service
+  journalctl --since "2022-01-01 12:00:00"
+  journalctl --since "8 minutes ago"
+#+end_src
+
+* SELinux
+** cmds
+/etc/selinux/config
+/var/log/audit/audit.log
+
+#+begin_src bash
+  ls -Z
+  ps -Z
+  ps -Zp $(pgrep sshd)
+  id -Z
+
+  getenforce # enforcing state
+  sestatus
+
+  ausearch -m avc -ts recent # searches audit.log for "avc" operations
+
+  chcon
+
+  getsebool -a # list SELinux toggles
+  semanage boolean -l
+
+  getsebool httpd_read_user_content
+  setsebool !$ on # not persistent (add -P)
+
+  semanage port -l # list ports
+  semanage port -a -t ssh_port_t -p tcp 2222
+
+#+end_src
+
+* Software
+** rpm & yum querying
+#+begin_src bash
+  rpm -qf $(which ps) # query database to show package of command
+  rpm -ql procps-ng # query db to show what package has to offer (docs, cmds,...)
+  rpm -ql procps-ng | grep `^/usr/bin` # shows what cmds are in pkg
+
+  rpm -qa http # query all installed packages
+
+  yum provides "*bin/fish"
+
+#+end_src
+
+** YUM repos & cache
+/etc/yum.repos.d/
+
+#+begin_src bash
+  yum info epel-release.noarch
+
+  yum clean all
+  yum makecache
+
+  yum repolist all
+  
+#+end_src
+** Kernel updates
+yum update kernel
+
+* Configuration Mngmt tools
+** Puppet
+hostnamectl to get hostname
+facter gives many infos. comes with puppet
+we can create manifests and policies based around facter output
+~facter | grep hostname~
+
+#+BEGIN_SRC conf
+# /etc/puppet/manifests/site.pp
+node "server1.example.com\" {
+    file { '/etc/yum.repos.d/local.repo':
+    ensure => "file",
+    owner => "root",
+    group => "wheel",
+    mode => "644",
+    content => "[localc7]
+name=Centos 7 Local
+baseurl=http://192.168.56.220/centos7
+gpgcheck=0
+enabled=1
+"}
+} # puppet apply site.pp
+
+#+END_SRC
+
+looks like ansible to me 

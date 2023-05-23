@@ -1,0 +1,150 @@
+* loops
+#+begin_src yaml
+  # 'item' holds loop value
+  - name: Postfix and Dovecot are running
+    service:
+      name: "{{ item }}"
+      state: started
+    loop:
+      - postfix
+      - dovecot
+
+  # with vars
+  vars:
+    mail_services:
+      - postfix
+      - dovecot
+
+  tasks:
+    - name: Postfix and Dovecot are running
+      service:
+        name: "{{ item }}"
+        state: started
+      loop: "{{ mail_services }}"
+
+  # loop over list or dico
+  - name: Users exist and are in the correct groups
+    user:
+      name: "{{ item.name }}"
+      state: present
+      groups: "{{ item.groups }}"
+    loop:
+      - name: jane # item, watch for '-'
+        groups: wheel
+      - name: joe # another item
+        groups: root
+#+end_src
+
+** deprecated but still present
+
+| with_items    | same as loop |
+| with_file     | for files    |
+| with_sequence |              |
+
+#+begin_src yaml
+  vars:
+    data:
+      - user0
+      - user1
+      - user2
+
+    tasks:
+      - name: "with_items"
+        debug:
+          msg: "{{ item }}"
+        with_items: "{{ data }}"
+      
+#+end_src
+
+** looping through register/debug example
+
+#+begin_src yaml
+  # loop_register.yml v
+  ---
+  - name: Loop Register Test
+    gather_facts: no
+    hosts: localhost
+    tasks:
+      - name: Looping Echo Task
+        shell: "echo This is my item: {{ item }}"
+        loop:
+          - one
+          - two
+        register: echo_results
+
+      - name: Show echo_results variable
+        debug:
+          var: echo_results
+
+#+end_src
+
+#+begin_src yaml
+  
+  # ansible-playbook loop_register.yml
+  ok: [localhost] => {
+      "echo_results": { # results are key-value pairs
+          "changed": true,
+          "msg": "All items completed",
+          "results": [ # results from the previous task
+              { # first item metadata
+                  "_ansible_ignore_errors": null,
+                  ...output omitted...
+                  "changed": true,
+                  "cmd": "echo This is my item: one",
+                  "delta": "0:00:00.011865",
+                  "end": "2018-11-01 16:32:56.080433",
+                  "failed": false,
+                  ...output omitted...
+                  "item": "one",
+                  "rc": 0,
+                  "start": "2018-11-01 16:32:56.068568",
+                  "stderr": "",
+                  "stderr_lines": [],
+                  "stdout": "This is my item: one",
+                  "stdout_lines": [
+                      "This is my item: one"
+                  ]
+              },
+              { # second result metadata
+                  "_ansible_ignore_errors": null,
+                  ...output omitted...
+                  "changed": true,
+                  "cmd": "echo This is my item: two",
+                  "delta": "0:00:00.011142",
+                  "end": "2018-11-01 16:32:56.828196",
+                  "failed": false,
+                  ...output omitted...
+                  "item": "two",
+                  "rc": 0,
+                  "start": "2018-11-01 16:32:56.817054",
+                  "stderr": "",
+                  "stderr_lines": [],
+                  "stdout": "This is my item: two",
+                  "stdout_lines": [
+                      "This is my item: two"
+                  ]
+              }
+          ]
+      }
+  }
+#+end_src
+
+#+begin_src yaml
+  ---
+  - name: Loop Register Test
+    gather_facts: no
+    hosts: localhost
+    tasks:
+      - name: Looping Echo Task
+        shell: "echo This is my item: {{ item }}"
+        loop:
+          - one
+          - two
+          register: echo_results
+
+      - name: Show stdout from the previous task.
+        debug:
+          msg: "STDOUT from previous task: {{ item.stdout }}" # stdout of echo_results['results']
+        loop: "{{ echo_results['results'] }}" # loop within results of var 'echo_result'
+
+#+end_src

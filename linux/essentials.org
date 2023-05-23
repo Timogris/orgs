@@ -1,0 +1,269 @@
+* Pipelines & redirections
+** STDOUT
+#+begin_src bash
+  df -h > file1 # redirect STDOUT implicitly
+  df -h 1> file1 # explicitly
+  df -h 1>> file1 # append explicitly
+#+end_src
+
+** STDERR
+console output when command returns error (ex: ~ls /etcw~, does not exist)
+redirect STDERR with ~2>~:
+~find /etc -type l 2> /dev/null~, find all links in /etc. Permission errors are discarded so only relevant information is returned.
+
+Use ~&>~ to redirect STDOUT and STDERR explicitly. 
+
+** noclobber
+~set -o~ option in shell. Enable with ~set -o noclobber~. Disables overwriting existing file
+bypass noclobber with : ~df -h >| file1~
+
+** STDIN
+#+begin_src bash
+  df -h >> diskfree
+  mail -s "Disk free" timo < diskfree
+
+#+end_src
+
+** HERE, END, EOF
+#+begin_src bash
+  cat > myfile << END # or HERE or whatever
+      > this is
+      > a multiple line
+      > text
+      > END # same as first
+
+#+end_src
+
+** Append command to var
+#+begin_src bash
+  test=`echo teeeest`
+
+#+end_src
+
+** Command (unnamed) pipelines
+#+begin_src bash
+  head -n1 /etc/passwd # display first line of file
+  # root:x:0:0:root:/root:/bin/bash
+
+  cut -f7 -d: /etc/passwd | sort | uniq | wc -l
+  # display 7th field delimited by `:`
+  # sort result
+  # display 1 occurence
+  # word count to know how many shells in use
+#+end_src
+
+** Named pipes
+~mkfifo mypipe~ (First In, First Out). Does not hold information, only serves.
+#+begin_src bash
+  timo@pasteque on tty1:
+  $ ls > mypipe
+  # console holds...
+
+  timo@pasteque on tty2:
+  $ wc -l < mypipe
+  # 27
+
+#+end_src
+
+** ~tee~
+#+begin_src bash
+  ls | tee myfile # display stdout and overwrite myfile
+  # use `-a` to append
+
+  # useful to escalate privilege on redirection
+  echo '127.0.0.1 timo' | sudo tee -a /etc/hosts
+#+end_src
+
+* Archiving
+** ~tar~
+#+begin_src bash
+  -c, --create
+  -x, --extract
+  -f, --file=FILE
+  -C, --directory=DIR
+  -v, --verbose up to vv
+  -t, --list archive
+  -g, --listed-incremental [myfile.snar]
+  -z, compress with gzip
+  -j, compress with bzip2
+
+  tar -cf doc.tar /usr/share/doc
+  tar -tf doc.tar
+
+  tar -xvf doc.tar # extract at current dir
+  tar -xvf doc.tar -C / # extract at '/' working directory
+
+  tar -cvf my0.tar -g my.snar doc/ #
+  tar -cvf my1.tar -g my.snar doc/ # record incremental archiving
+  tar -cvf my2.tar -g my.snar doc/ #
+
+  tar -xvf my0.tar -g /dev/null # extract each increment
+  tar -xvf my1.tar -g /dev/null # no recording, just stdout verbose
+  tar -xvf my2.tar -g /dev/null # 
+#+end_src
+
+** compression
+#+begin_src bash
+  gzip dir.tar
+  gunzip dir.tar
+
+  bzip2 dir.tar # better comp tool
+  bunzip2 dir.tar
+
+  tar -cvzf dir.tar.gz $HOME
+  tar -cvjf dir.tar.bz2 $HOME
+
+
+#+end_src
+
+** ~cpio~
+pass archive and make archives as args
+#+begin_src bash
+  -o, --create
+  -i, --extract
+  -d, --make-directories
+
+  find /usr/share/doc -name '*.pdf' | cpio -o > /tmp/pdf.cpio
+  cpio -id < ubuntu22.04.iso
+
+#+end_src
+
+** ~dd~
+#+begin_src bash
+  dd if=/dev/sda1 of=boot.img
+  dd if=/dev/zero of=/dev/sdz # wipe
+
+#+end_src
+
+* Versionning with ~rcs~
+#+begin_src bash
+  ci foo # begin versionning
+  co foo
+  chmod u+w foo
+  [EDIT FILE]
+
+  rcs -l foo # lock file
+  ci foo # increment version
+
+  co -r1.1 foo # checkout file without locking, cant increment as is
+  co -l -r1.1 foo # checkout file, skip rcs step
+
+  rlog -b foo # print rev logs on main branch
+
+#+end_src
+
+* Permissions
+** ~umask~
+Set default permissions at file creation by stripping or /masking/ rights
+user,group,others
+- 4: read
+- 2: write
+- 1: execute
+~$ umask 0117~ -> ~-rw-rw---- file~
+
+* SSH config
+
+~$HOME/.ssh/config~
+#+begin_src conf
+  Host pasteque
+       HostName     192.168.1.8
+       User         timo
+       Port         22
+       IdentityFile ~/.ssh/id_rsa-centos # private key
+
+#+end_src
+
+
+* cool tools
+** ~find~
+#+begin_src bash
+  find /usr/share/doc -name '*.pdf' # print absolute path
+  find -name '*.pdf' # print relative path
+
+  # find all PDFs in /usr/share/doc
+  # cp all found{} to /share
+  # close with \;
+  find /usr/share/doc -name '*.pdf' -exec cp {} /share \;
+
+  -delete removes found files
+
+#+end_src
+** ~date~
+~date +%F~ display date
+** ~file~
+~file myfile~ get file info
+** ~stat~
+#+begin_src bash
+  stat -c %A hello.sh
+  # -r-xr-xr-r
+
+  stat -c %a hello.sh
+  # 555
+
+#+end_src
+
+** ~script~
+logs all shell interaction with prompts and outputs. Start with ~script~ and end with ~exit~.
+Use with named pipelines so remote user can examine current operation:
+#+begin_src bash
+  # timo@tty1:
+  $ mkfifo pipe
+  $ script -f pipe
+
+  # root@tty2:
+  $ cat pipe
+
+#+end_src
+
+** ~screen~
+start session with ~screen~ or ~screen -S session_name~.
+detach with ~C-a C-d~
+reattach with ~screen -r~ or ~screen -r session_name~.
+list sessions with ~screen -ls~
+
+~C-a c~ : create buffer
+~C-a C-w~ : list buffers
+~C-a [0-9]~ : change to buffer
+~C-a "~ : select buffer from list
+~C-a n/p~ : next/previous buffer
+~C-a k~ : kill buffer
+~C-a A~ : rename buffer
+~C-a C-a~ : switch to last used buffer
+~C-a a~ : sends ~C-a~ to buffer
+
+~C-a S~ : split window hor
+~C-a |~ : split window ver
+~C-a C-i~ or ~C-a Tab~ : change window
+~C-a Q~ : remove window splits
+
+~C-a C~ : clear current buffer without killing
+
+~$HOME/.screenrc~
+#+begin_src conf
+  screen -t bash 0 bash
+  screen -t s1   1 ssh server1
+  screen -t s2   2 ssh server2
+# screen -t [name] [position] [command]
+
+#+end_src
+
+** Passing command results as argument
+
+~rpm -qf $(which rpm)~ will result in ~rpm -qf /usr/bin/rpm~
+
+** ~write~ and ~wall~
+~write [user]~
+~wall [message_file]~
+
+** ~sed~
+*** Remove last line
+~sed -i '$d' file~
+-i : edit file in place
+$ : last line
+d : delete
+
+remove 8 last lines:
+#+begin_src bash
+  for i in {1..8}; do sed -i '$d' file; done
+
+#+end_src

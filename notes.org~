@@ -1,0 +1,80 @@
+* Perso
+
+** TODO script nuits chaudes                                   :script:linux:
+- [X] enable ssh paname
+- [-] script
+  - [X] api weather
+  - [ ] parsing
+  - [ ] appending over ssh
+- [ ] enable cron job
+- [ ] PyGraph or else
+  
+** TODO paname init                                               :sys:linux:
+- [ ] vpn
+- [ ] resilio
+- [-] backups
+- [ ] git
+- [X] ssh
+  
+** TODO pasteque backups                                          :sys:linux:
+
+  
+** DONE Weekend camping                                     :sortir:outdoors:
+SCHEDULED: <2023-05-26 Fri>
+[[https://www.gites.fr/gites_les-faysses-de-l-hetre_burzet_h6478388.htm][Les Faysses de l'Hêtre, Burzet]]
+*** TODO contacter hote
+
+** TODO vacances berlin                                       :sortir:berlin:
+- [ ] poser congés
+  ariana a posé du 11 au 16
+- [ ] regarder trains
+
+** TODO laver fenetres                                               :chores:
+** TODO laver toilettes                                              :chores:
+
+* Work
+
+** TODO Formation centreon                                             :work:
+** TODO RHCSA                                                    :work:linux:
+- [X] call blandine num TVA
+- [X] Mail [[mailto:formationtechnologies.fr@capgemini.com][formationtechnologies.fr@capgemini.com]]
+  Le service de formation devait enfait s'en occuper, en l'attente de leur retour
+  
+** TODO yammer,gari,GetSuccess                                    :work:soft:
+SCHEDULED: <2023-06-16 Fri>
+- [ ] yammer
+- [ ] gari
+- [ ] GetSuccess
+
+Trouver des oppo et me faire du reseau (y)
+insister sur le r2d2!!
+
+Getsuccess
+Differences entre priorites et activites
+
+Prio:
+  - acti
+  - acti
+  - acti
+
+
+* Pense-bêtes
+M'imposer des deadlines
+
+Ne pas s'accrocher a 1 medium, etre modulaire, des fois le carnet accomplit mieux la tache, des fois Emacs.
+
+* How to start VMs from cmd in Windows
+
+#+begin_src bash
+  Start-VM -name centos # centos, centos-client
+  vmconnect.exe localhost centos # hyperv server, vm name
+
+#+end_src
+
+* Nuits chaudes
+|      | may            | deg^C |
+|------+----------------+-------|
+| date | Fri 05/05/2023 | 15    |
+
+
+

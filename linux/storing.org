@@ -1,0 +1,606 @@
+* Partitioning
+** parted
+Example script
+#+begin_src bash
+  #!/bin/bash
+  DISK="/dev/sdb"
+
+  # Create MBR partition table and extended partition across disk
+  parted -s $DISK --m mklabel msdod mkpart extended 1m -1m
+
+  # Create swap partition as partition 5 the first logical partition
+  parted -s $DISK mkpart logical linux-swap 2m 100n #5
+
+  parted -s $DISK mkpart logical 101m 200m #6
+  parted -s $DISK mkpart logical 201m 300m #7
+  parted -s $DISK mkpart logical 301m 400m #8
+  parted -s $DISK mkpart logical 401m 500m #9
+
+  # create 3 more partitions for lvm
+  parted -s $DISK mkpart logical 501m 600m #10
+  parted -s $DISK mkpart logcial 601m 700m # 11
+  parted -s $DISK mkpart logical 701m 800m #9
+  parted -s $DISK set 10 lvm on # set partition 10 to LVM
+  parted -s $DISK set 11 lvm on # set partition 11 to LVM
+  parted -s $DISK set 12 lvm on # set partition 12 to LVM
+
+  parted -s $DISK mkpart logical 801m 900m #13 
+  parted -s $DISK mkpart logical 901m 1000m #14
+	parted -s $DISK set 13 raid on # set partition 13 to RAID
+	parted -s $DISK set 14 raid on # set partition 14 to RAID
+  parted -s $DISK print
+
+#+end_src
+
+* FSs
+#+begin_src bash
+  mkfs -t
+  mkfs.<fstype>
+
+  lsblk
+  blkid /dev/sdb6 # identify device fs and UUID, useful for /etc/fstab
+
+#+end_src
+
+** mount
+
+Independent options can be set in ~/etc/fstab~ like noauto (no auto mount), noatime (limit of access time), uquota (quota of disk access per user) and work with all FSs.
+
+* SWAP & RAID
+
+#+begin_src bash
+  mkswap /dev/sdb5
+
+  swapon -a # enables swap for marked swap blocks
+  swapoff -a
+  swapon -s # summary, lists active swap blocks
+
+#+end_src
+
+** RAID (Redudant Array of Inexpensive Disks)
+- Usually used to create fault tolerant disk arrays
+- Creates /dev mapper/ virtual device file
+- RAID is integrated into btrfs ; btfrs can create fs and RAID device in one go
+
+RAID Levels:
+- *Linear* : partitions/disk not the same size. Volume is expanded accross all disks in array. Spare disk not supported (better for fault tolerance)
+- *RAID0* : Similar to above, but disks/partitions are of same size (better for fault tolerance)
+- *RAID1* : Mirror data between devices of similar size (v good redundancy)
+- *RAID4,5,6* : 3 or more devices (4 with RAID6), data is stipped with parity (combines redundancy and fault tolerance)
+  
+#+begin_src bash
+  cat /proc/mdstat # returns raid devices
+
+  # Multi-Disk Administration
+  # with /dev/md0 as dev mapper device
+  # level=mirror is RAID1
+  mdadm --create --verbose /dev/md0 \
+        --level=mirror \
+        --raid-devices=2 /dev/sdb13 /dev/sdb14
+
+  ls -l /dev/md0 # now exists
+  lsmod | grep raid # lists /proc/modules
+
+  mkfs.xfs /dev/md0 # can be treated as any other device
+
+  mdadm --detail --scan # gives details about raid config
+  !mdadm >> /etc/mdadm.conf # make it persistent
+
+  mdadm --stop /dev/md0
+  mdadm --assemble --scan # starts RAID with saved /etc/mdadm.conf file
+  # reboot allowed
+
+#+end_src
+
+* ACLs (Access Control Lists)
+Set POSIX permissions, which are understood by every system.
+- Manage Linux FS features and flags
+- create and manage ACLs
+- Diagnose and correct file permission problems
+- Restore default SELinux file contexts
+  
+** List ACL Support
+#+begin_src bash
+  uname -r # reminder, kernel version
+
+  grep ACL /boot/config-$(uname -r) # gives support
+
+  tune2fs -l /dev/sdb6 | grep -i default
+
+#+end_src
+
+** Display ACLs
+#+begin_src bash
+  getfacl file.sh
+  ls -la
+  # -rw-rw-r--. dot is about ACL (not set)
+
+#+end_src
+
+** Configure Default ACLs
+Remember: [[file:essentials.org::*~umask~][umask]] sets defaults permissions at file creation
+#+begin_src bash
+  mkdir test-acl/
+  getfacl !$ # normal permissions
+
+  setfacl -m d:o:--- test-acl/
+  # sets (d:)efault so (o:)thers have no (---) rights
+
+  setfacl -dm u:timo:rw test-acl/
+  
+#+end_src
+
+** Add additional ACEs (Access Control Entries)
+#+begin_src bash
+  setfact -m u:tux:rx work/
+
+#+end_src
+
+** Remove ACLs
+#+begin_src bash
+  setfacl -x u:timo file1 # keeps acl, removes entry
+  setfacl -b file1 # delete entire acl
+
+  getfacl
+
+#+end_src
+
+* LVMs
+Logical Volume Modules
+
+#+begin_src bash
+  vgscan
+  lvscan
+
+  pvcreate /dev/sdb1{0..2} # /dev/sdb10, /dev/sdb11, /dev/sdb12
+
+  vgcreate vg1 /dev/sdb10 /dev/sdb11
+  vgscan
+  vgs
+
+  lvcreate -n lv1 -L 184m vg1 # create lv on volume group vg1
+  lvscan
+
+  mkfs.xfs /dev/vg1/lv1
+
+  mkdir /lvm
+
+  vi /etc/fstab
+  # cf conf below
+
+  mount -a
+#+end_src
+
+# /etc/fstab
+#+begin_src conf
+	  /dev/vg1/lv1 /lvm xfs defaults 0 0
+
+#+end_src
+
+** Resizing LVs on the fly
+#+begin_src bash
+  df -h /lvm
+
+  vgextend vg1 /dev/sdb12 # adding with /dev/sdb1{0,1}
+  vgs
+
+  lvextend -L +50m /dev/vg1/lv1
+
+  xfs_growfs /lvm # resize filesystem 
+
+#+end_src
+
+** LVM Snapshots
+#+begin_src bash
+  # create /dev/vg1/backup LV based on /dev/vg1/lv1
+  lvcreate -L 50m -s -n backup /dev/vg1/lv1 # -snapshot,-name 
+
+  mount /dev/vg1/backup /mnt -o nouuid,ro # -o: centos
+  tar -cf /root/backup.tar /mnt
+  umount /mnt
+
+  lvremove /dev/vg1/backup # remove backup volume as not needed anymore
+  
+#+end_src
+
+** Migrate Partition Volumes
+#+begin_src bash
+  pvcreate /dev/sdc5 # create partition on new physical volume
+  vgextend vg1 /dev/sdc5 # extend VG to new partition
+
+  pvmove -b /dev/sdb10 /dev/sdc5 # move partition volume
+
+  vgreduce vg1 /dev/sdb10 # strip partition from volume group
+
+  pvremove /dev/sdb10 # remove old partition 
+
+#+end_src
+
+* iSCSI Block storage server
+#+begin_src bash
+  ### configure firewall on server1
+  yum install targetd targetcli
+  systemctl enable targetd # no need to start, isnt a demon
+  firewall-cmd --add-service=iscsi-target --permanent
+  firewall-cmp --reload
+
+  # create LV to share as block device, here /dev/vg1/web_lv
+
+  ### create on server1
+  targetcli
+  /> ls
+  /> backstore/block/create web_store /dev/vg1/web_lv
+  /> iscsi create iqn.2016-02.com.example.server1:web
+  /> ls
+  />
+  /> cd iscsi/iqn.2016-02.com.example.server1:web/tpg1/
+  /> luns/ create /backstores/block/web_store
+  /> acls/ create iqn.2016-02.com.example.com.server2:web
+  /> cd /
+  /> exit
+
+  ### iscsi initiator on server2
+  yum install iscsi-initiator-utils
+
+  vi /etc/iscsi/initiatorname.iscsi
+
+  iscsiadm --mode discovery --type sendtargets --portal
+  server1.example.com --discover
+
+  iscsiadm --mode node targetname iqn.2016-02.com.example.server1:web --portal server1.example.com --login
+  
+
+#+end_src
+
+* Highs Availability clusters
+Can manage resources such as website and migrate the resource to another node in the event of a failure or planned downtime
+
+** Install pacemaker / configure firewall
+#+begin_src bash
+  ### server1
+  yum install -y pacemaker pcs resource-agents
+  echo 'hacluster:Passwor1d' | chpasswd
+  firewall-cmd --permanent --add-sercice=high-availability
+  firewall-cmd --reload
+
+  systemctl enable pcsd
+  systemctl start pcsd
+
+  ### server2
+  yum install -y pacemaker pcs resource-agents
+  echo 'hacluster:Passwor1d' | chpasswd
+  firewall-cmd --permanent --add-sercice=high-availability
+  firewall-cmd --reload
+
+  systemctl enable pcsd
+  systemctl start pcsd
+
+  ### server1
+  # authorize both nodes
+  pcs cluster auth server1.example.com server2.example.com -u hacluster -p Passwor1d
+
+  pcs cluster setup --name savane server1.example.com server2.example.com
+
+  pcs cluster start --all
+
+  pcs status
+
+  ### both
+  systemctl enable corosync pacemaker
+
+#+end_src
+
+** STONITH & Quorum
+>Shoot The Other Node In The Head
+Node will be terminated if not working properly or failed, preventing connection with the outside world.
+Quorum works from a cluster of 3 nodes, so when 1 fails, 2 and 3 will still be able to communicate, helping in diagnosing the problem as with a cluster of 2 nodes, 1 failing completely breaks communication.
+~pcs status~ returns warning saying no stonith devices and stonith-enabled is not false
+
+#+begin_src sh
+  pcs property set stonith-enabled=false
+  pcs property set no-quorum-policy=ignore
+
+#+end_src
+
+** Create clustered IP Address
+Assign a ip address to your cluster
+#+begin_src bash
+  ### server1 or any other agent/node
+  pcs config # display config
+
+  # name: cluster_ip
+  # Open Cluster Framework
+  # use heartbeat
+  # use IPaddr2 script
+  # ip should be free, set netmask
+  # operate monitoring every 20s
+  pcs resource create cluster_ip \
+      ocf:heartbeat:IPaddr2 \
+      ip=192.168.1.99 cidr_netmask=24 \
+      op monitor interval=20s
+
+  ### server2, any other node
+  pcs cluster standby server1.example.com # machine is in standby so cluster does not rely on it
+  pcs status # now shows ip address is carried by server2
+  ip a show # now shows local + newly assigned ip, as server1 is in standby
+
+  pcs cluster unstandby server1.example.com
+
+#+end_src
+
+** Clusterize a webserver
+*** Configure Apache
+*All of this section must be done on all nodes that will serve the webserver*
+
+DocumentRoot is set to /var/www/html in /etc/httpd/conf/httpd.conf
+Directory is /var/www
+
+~apachectl configtest~
+
+**** Configure status access
+/etc/httpd/conf.d/status.conf <- new
+#+begin_src conf
+  <Location /server-status>
+              SetHandler server-status
+              Require ip 127.0.0.1 # status is only accessed by localhost
+  </Location>
+
+#+end_src
+
+**** Aggregate /var/www/html/index.html
+With a nice hello world
+
+*** Create web server cluster
+#+begin_src bash
+  pcs resource create web-server \
+      ocf:heartbeat:apache \
+      configfile=/etc/httpd/conf/httpd.conf \
+      statusurl="http://127.0.0.1/server-status" \
+      op monitor interval=20s
+
+  pcs status # shows cluster_ip and web-server cluster running on diff nodes
+
+  pcs constraint colocation add web-server cluster_ip INFINITY # infinite priority
+  pcs status # both resources are running on the same machine
+
+  pcs cluster standby server1.example.com # resources are transfered to server2
+
+#+end_src
+
+* GlusterFS
+GlusterFS Service allows you to create replicated, striped and distributed filesystem across nodes on your network
+
+*Objective :*
+deploy, configure and maintain high availability replication:
+- 1. add+format disks on server{1,2}
+- 2. install ~glusterfs-server~, edit firewall on server{1,2}
+- 3. create distributed volume across both servers
+
+1.
+#+begin_src bash
+  #### server1 ####
+  parted /dev/sdd -- mklabel msdos mkpart primary 1m -1m
+  # -- allows use of 1m -1m which means whole disk
+
+  mkfs.xfs /dev/sdd1
+
+  mkdir /gfs
+
+  blkid /dev/sdd1 >> /etc/fstab # edit entry to match config v
+  # UUID="[...]" /gfs xfs defaults 0 0
+
+  #### server2 ####
+  parted /dev/sdb -- mklabel msdos mkpart primary 1m -1m
+  # -- allows use of 1m -1m which means whole disk
+
+  mkfs.xfs /dev/sdb1
+
+  mkdir /gfs
+
+  blkid /dev/sdb1 >> /etc/fstab # edit entry to match config v
+  # UUID="[...]" /gfs xfs defaults 0 0
+
+  #### both ####
+  yum install centos-release-gluster310.noarch # newest repo
+  yum install glusterfs-server
+  firewall-cmd --permanent --add-service=glusterfs
+  firewall-cmd --reload
+
+#+end_src
+
+2.
+#+begin_src bash
+  #### both ####
+  mkdir /gfs/vol_dist
+
+  #### server1 ####
+  gluster peer probe server2.example.com # create cluster pool
+  gluster volume create volume_distributed \
+          transport tcp \
+          server1.example.com:/gfs/vol_dist \
+          server2.example.com:/gfs/vol_dist
+
+  mount -t glusterfs server1.example.com:/volume_distributed /mnt
+
+
+  #### server2 ####
+  gluster peer status
+
+#+end_src
+
+3.
+#+begin_src bash
+  #### server1 ####
+  mkdir /gfs/rep
+  gluster volume create volume_replicated \
+          replica 2 \ # replica type with 2 nodes
+          server1.example.com:/gfs/rep \
+          server2.example.com:/gfs/rep
+
+  gluster volume info
+
+  #### server2 ####
+  mkdir /gfs/rep
+
+#+end_src
+
+* Encrypted Volumes
+
+>LUKS
+>Linux Unified Key Setup is default mode for encrypting volumes in CentOS7
+
+- 1. Add additional LVs and shred storage
+    #+begin_src bash
+    # add logical volume
+    vgs # check
+    lvcreate -L 60m -n enc vg1 # create vg1 for shred examp
+    shred -v --iterations=1 /dev/vg1/enc   # shred
+
+#+end_src
+- 2. check for LUKS support and encrypt LV
+  #+begin_src bash
+    grep -i ACL /boot/config-$(uname -r)
+    # ** ACL=y
+    grep -i DM_CRYPT /boot/config-$(uname -r)
+    lsmod | grep dm_crypt
+    modprobe dm_crypt
+    lsmod | grep dm_crypt
+
+    rpm -qf $(which cryptsetup)
+    # cryptsetup-X.X.X-X...
+    yum update cryptsetup
+
+  #+end_src
+- 3. open and format the encrtypted volume
+  #+begin_src bash
+    cryptsetup -y luksFormat /dev/vg1/enc
+
+    cryptsetup -y luksDump /dev/vg1/enc
+    # ***
+
+    cryptsetup -y isLuks /dev/vg1/enc
+    echo $?
+
+    cryptsetup luksOpen /dev/vg1/enc
+    # pwd prompt for enc volume
+    ls /dev/mapper
+
+  #+end_src
+- 4. mounting encrypted volumes @ boot time
+  #+begin_src bash
+    cryptsetup luksClose enc_vol
+    cryptsetup luksOpen /dev/vg1/enc enc_datavol
+
+    # /etc/crypttab
+    # luks UUID="..."
+    # UUID of crypto_LUKS device from blkid
+
+    # /etc/fstab
+    # /dev/mapper/luks/ data xfs defaults 0 0
+
+
+
+  #+end_src
+
+* Auto Mount
+Requests auto mounts when needed instead of creating multiple connections at boot via /etc/fstab
+- Install ~autofs~ and investigate standard configuration
+  #+begin_src bash
+    yum list installed | grep autofs
+    yum list available | grep autofs
+    yum install autofs
+
+    ls /etc/auto*
+    less /etc/autofs.conf
+    less /etc/auto.master
+    # | **
+    # |   /misc  /etc/auto.misc
+
+    systemctl start autofs # creates /misc at point
+    
+    ls /etc/auto.misc # default config for mapping mounts
+    # | **
+    # |   cd  -fstype=iso9660,ro,nosuid,nodev :/dev/cdrom
+
+    ls /misc # empty
+    ls /misc/cd # magically appears (cd-rom example)
+
+  #+end_src
+- Configure ~autofs~ for encrypted partitions
+  #+begin_src bash
+    # reminder: /dev/mapper/luks-data mapped to /luks-data
+    # configure so pwd is not prompted at mount
+
+    vi /etc/fstab # comment out /dev/mapper line
+
+    cryptsetup luksClose luks-data
+    cat /etc/cypttab # returns identifier
+
+    vi /etc/auto.misc
+    # | **
+    # +   luks  -fstype=xfs :/dev/mapper/luks-data
+
+    systemctl restart autofs # pwd prompt
+    ls /misc/luks
+
+  #+end_src
+  
+** Configure ~autofs~ to mount network FSs
+*** Configure NFS on server2
+#+begin_src bash
+  #### server2 ####
+  # install / configure NFS
+  firewall-cmd --add-service=nfs --permanent
+  firewall-cmd --reload
+
+  systemctl enable rpcbind nfs-server
+  systemctl start rpcbind nfs-server
+
+  mkdir /share
+  find /usr/share/doc -name '*.pdf' -exec cp {} /share \;
+
+  vi /etc/exports # where you share/export
+  # + /share *(ro)
+
+  exportfs -r
+  exportfs -s
+
+#+end_src
+  
+*** Mount on server1
+#+begin_src bash
+  mount -t nfs server2.example.com:/share /mnt
+  mount # by itself, returns mounts
+
+  umount /mnt # auto now
+
+  vi /etc/auto.misc
+  # | **
+  # +   pdf  -ro,soft,intr server2.example.com:/share
+  # soft means system is mounted in background
+  # intr means interruption if error arises (goes well with soft)
+
+  systemctl restart autofs
+  ls /misc/pdf
+
+#+end_src
+
+* Setup User and Group Quotas
+- Enable quota management on EXT FSs
+  #+begin_src bash
+    df -hT # human, FS Type
+
+    ls /data/mydata
+    quot* # bash completions
+    rpm -qf $(which quota)
+    
+    mount | grep mydata
+    vi /etc/fstab
+    # | **
+    # +   UUID="{..}" /data/mydata ext4 noatime,noexec,usrquota 0 2
+
+    umount /data/mydata
+    mount -a # unmount and remount from fstab file
+
+  #+end_src
+- Set and report 

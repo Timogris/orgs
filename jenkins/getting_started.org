@@ -1,0 +1,10 @@
+* Working, destroying
+docker-compose up --detach
+docker-compose down
+docker exec -it compose-jenkins-1 bash
+
+* Plan
+- clean
+- compile
+- test
+- package

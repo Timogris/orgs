@@ -1,0 +1,24 @@
+---
+- name: Simple bool
+  hosts: all
+  vars:
+    run_my_task: true
+
+  tasks:
+    - name: httpd package is installed
+      yum:
+        name: httpd
+      when: run_my_task # true, will run
+
+
+---
+- name: Test variable is defined
+  hosts: all
+  vars:
+    my_service: httpd
+
+  tasks:
+    - name: "{{ my_service }} package is installed"
+      yum:
+        name: "{{ my_service }}"
+      when: my_service is defined # will not run if my_service is null

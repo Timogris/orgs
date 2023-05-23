@@ -1,0 +1,8 @@
+---
+- name: Check httpd is present
+  hosts: web
+  tasks:
+    - name: httpd package is present
+      yum:
+        name: httpd
+	state: present

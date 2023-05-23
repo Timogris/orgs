@@ -1,0 +1,58 @@
+* facts
+** print facts via ad hoc
+#+begin_src bash
+  ansible [host,hostgroup] -i [inventory_file] -m setup -a 'filter=[group]'
+#+end_src
+Output shows facts beginning by 'ansible_*' likE *'ansible_memtotal_mb'*. To invoke those facts, simply use {{ ansible_facts['memtotal_mb'] }}.
+
+** print facts via debug
+#+begin_src yaml
+  ---
+  - name: Fact dump
+    hosts: all
+    tasks:
+      - name: Print all facts
+        debug:
+          var: ansible_facts
+        
+#+end_src
+
+** example printing
+#+begin_src yaml
+  ---
+  - hosts: all
+    tasks:
+      - name: Prints various Ansible facts
+        debug:
+          msg: >
+            The default IPv4 address of {{ ansible_facts['fqdn'] }}
+            is {{ ansible_facts['default_ipv4']['address'] }}
+#+end_src
+
+** gather manually
+#+begin_src yaml
+  ---
+  - name: this play gathers no facts
+    hosts: large_farm
+    gather_facts: no
+    tasks:
+      - name: manually gather facts
+        setup:
+#+end_src
+
+* examples
+
+| fact                            | variable                                         |
+|---------------------------------+--------------------------------------------------|
+| hostname                        | ansible_facts['hostname']                        |
+|---------------------------------+--------------------------------------------------|
+| fqdn (fully-qualified hostname) | ['fqdn']                                         |b
+|---------------------------------+--------------------------------------------------|
+| ipv4 address                    | ['default_ipv4']['address']                      |
+|---------------------------------+--------------------------------------------------|
+| interfaces                      | ['interfaces']                                   |
+|---------------------------------+--------------------------------------------------|
+| size of /dev/vda1               | ['devices']['vda']['partitions']['vda1']['size'] |
+|---------------------------------+--------------------------------------------------|
+| list dns servers                | ['dns']['nameservers']                           |
+

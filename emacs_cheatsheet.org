@@ -1,0 +1,65 @@
+* edit multiple lines
+select rectangle region (~C-x SPACE~) then ~C-x r t~
+
+* text wrapping
+~M-x visual-line-mode~
+
+~M-x toggle-truncate-line~
+
+* menu-bar
+~M-`~
+
+* sentences
+~M-e~ forward-sentence
+~M-a~ backward-sentence
+~M-k~ kill until end of sentence
+~C-x BACKSPACE~ kill until beginning of sentence
+
+* macros
+~F3~ : define macro
+~F4~ : end macro defining or reapplies macro if not currently defining
+~C-u 6 F4~ : apply 6 times defined macro
+
+* previous cursor position
+~C-u C-SPC~ : return to last mark
+~C-x C-x~ : select region between cursor and last mark
+
+* comment line/region
+~C-x C-;~
+
+* append command output to current buffer
+~C-u M-! <command>~
+* goto-line
+~M-x goto-line~
+
+~M-g g~
+
+* goto matching parens
+~C-M-right~ : end of current expression
+~C-M-left~ : beginning of current expression
+
+~C-M-p~ : end of parens group
+~C-M-n~ : beginning of parens group
+
+~C-M-f~ : end of balanced exp
+~C-M-b~ : beginning of balanced exp
+
+~C-M-k~ : kill sexp going forward
+~C-M-SPC~ : mark at end of sexp
+
+* erase one char / one word
+~C-d~
+~M-d~
+
+* ORG
+** agenda
+~C-c [~ : add file in front of agenda files
+
+** TODOs
+~C-c / t~ : show todo entries in current file
+~M-x org-agenda t~ : show all TODO entries from agenda files (good for todolists)
+
+~S-M-RET~ : Insert TODO entry
+
+~S-RIGHT S-LEFT~ : state
+~C-c C-t~ : cycle state

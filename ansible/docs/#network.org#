@@ -1,0 +1,102 @@
+* Managing network configuration
+** the network role
+supports ~network_provider~ and ~network_connections~ vars.
+~network_provider~ takes ~nm~ (RHEL8 default) or ~initscripts~ as values.
+~network_connections~ which manages connection info supports theses:
+- name :: identifies connection profile
+- state :: up, down
+- persistent_state :: present, absent
+- type :: ethernet,bridge,bond,team,vlan,macvlan,infiniband
+- autoconnect :: ~enabled~ -ish
+- mac :: restrict connection usage to certain MAC addrs
+- interface_name :: restrict connection usage to a specific interface
+- zone :: configures ~firewalld~ zone for the interface
+- ip :: ip addr for connection
+
+#+begin_src yaml
+  ---
+  - name: NIC Configuration
+    hosts: webservers
+    vars:
+      network_connections:
+        - name: ens4
+          type: ethernet
+          ip:
+            address:
+              - 172.25.250.30/24
+
+    roles:
+      - rhel-system-roles.network
+#+end_src
+** configuring network with modules
+*** ~nmcli~
+[[https://docs.ansible.com/ansible/2.9/modules/nmcli_module.html][nmcli Documentation]]
+args:
+- conn_name
+- autoconnect :: ~enabled~ -ish
+- dn4 :: DNS servers for IPv4 (max 3)
+- gw4 :: gateway
+- ifname :: interface bound to connection
+- ip4
+- state
+- type :: type of device/network conn
+
+#+begin_src yaml
+  - name: NIC Configuration
+    nmcli:
+      conn_name: ens4-conn
+      ifname: ens4
+      type: ethernet
+      ip4: 172.25.250.30/24
+      gw4: 172.25.250.1
+      state: present
+
+#+end_src
+
+*** ~hostname~
+[[https://docs.ansible.com/ansible/2.9/modules/hostname_module.html][hostname Documentation]]
+changes hostname for managed host without modifying /etc/hosts
+#+begin_src yaml
+  - name: Change hostname
+    hostname:
+      name: managedhost1
+
+#+end_src
+
+*** ~firewalld~
+[[https://docs.ansible.com/ansible/2.9/modules/firewalld_module.html][firewalld Docs]]
+
+#+begin_src yaml
+  - name: firewalld permits http service
+    firewalld:
+      service: http
+      permanent: true
+      state: enabled
+      immediate: yes
+
+  # Check firewall services are enabled:
+  # ansible [hostname] -u [user] -b -a 'firewall-cmd --list-services'
+  #
+
+
+#+end_src
+
+This task configures eth0 for zone ~external~ (interface *-1 zone)
+#+begin_src yaml
+  - name: moving eth0 to external
+    firewalld:
+      zone: external
+      interface: eth0
+      permanent: yes
+      state: enabled
+#+end_src
+
+args:
+- interface
+- port
+- rich_rule
+- service
+- source
+- zone
+- state
+- type

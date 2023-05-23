@@ -1,0 +1,11 @@
+[group1]
+lab1.example.com
+lab2.example.com
+
+[group2]
+lab3.example.com
+lab4.example.com
+
+[groups:children]
+group1
+group2

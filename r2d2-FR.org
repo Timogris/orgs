@@ -1,0 +1,41 @@
+Environnement technique : React, Node, Linux, OVH, Docker, Elasticsearch, Mongodb, Mongoose, Gitlab
+Type d'expérience : mission d'alternance sur 1 an et 3 mois.
+Analyse des besoins et création d'un backlog produit.
+Mise en place d'une méthode de travail Agile dans un environement de travail.
+Etude du marché de l'existant des technologies web et veille technologique pour le développement d'une solution applicative "from scratch".
+Comparaison et présentation des choix effectués au PO. 
+Développement en React et Node d'une solution web applicative de gestion et facturations de comptes clients.
+Installation et configuration de différents services conteneurisés (Mongodb, Elasticsearch) sur serveurs locaux.
+Configuration des modèles des objets pour la base de données (Mongodb, Mongoose).
+Installation d'un outil de versionnement de code (Gitlab) sous forme de conteneur Docker sur une VM locale. 
+Configuration de différentes sauvegardes automatiques (Gitlab, GED) par le biais de cronjobs et upload de ces sauvegardes sur cloud (OneDrive Pro) via rclone.
+Rédaction d'une documentation Gitlab.
+Rédaction d'une documentation Docker.
+Rédaction d'une documentation sur les sauvegardes automatiques mises en place.
+
+Type d'expérience : mission d'alternance sur 7 mois.
+Environnement technique : Linux, Docker, OVH, MagicOnline, AWS, Terraform
+Refonte du Gitlab, installation en Self-Managed (Docker) sur une VM MagicOnline.
+Création et importation des repositories des autres pôles IT de l'entreprise.
+Formation de développeurs Senior à Git / Gitlab.
+Création et configuration de serveurs TEST et PROD.
+Mise en place de pipelines Gitlab d'intégration continue des changements sur le serveur TEST.
+Etude comparative de technologies DevOps existantes et de différents outils (Ansible, Terraform, Kubernetes ; Azure, OVH, AWS) en fonction du besoin de l'entreprise.
+Présentation et justification des choix effectués.
+Suivi d'une formation d'une journée sur AWS CloudFormation, S3, Lambda, EC2.
+Configuration de Terraform sur l'architecture existante : création et déploiement d'une infrastructure versionnée comportant le serveur TEST, une instance AWS Lambda d'un serveur web Express ainsi que les VM responsables des services Docker.
+Rédaction d'une documentation (Org, Markdown) sur Terraform et formation Terraform.
+
+Environnement technique : ASP.NET Core MVC, Angular, OpenLayers.
+Type d'expérience : mission en alternance sur 1 an pour un grand compte.
+Développement d'une web application de géolocalisation et de délimitation des parcelles cadastrales du Grand Lyon.
+
+Environnement technique : HTML, CSS, PHP
+Type d'expérience : mission de stage sur 2 mois
+Développement et déploiement d'un site vitrine.
+Mise en place d'un système d'upload de fichiers PDF sur le site en question.
+
+Environnement technique : Windows, PowerShell ISE, IIS, Sharepoint.
+Type d'expérience : mission de stage sur 2 mois.
+Requêtes et gestion des droits utilisateurs sur l'AD du pôle informatique.
+Gestion des erreurs et tickets utilisateurs.

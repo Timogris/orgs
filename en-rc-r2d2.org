@@ -1,0 +1,40 @@
+* Software / DevOps Engineering
+Technical environment: React, Node, Linux, OVH, Docker, Elasticsearch, Mongodb, Mongoose, Gitlab
+Experience type: work-and-study mission over 1 year and 3 months.
+Implementation of Agile methods within a legacy work environment.
+Study of the existing technological market for the design and development of an application solution "from scratch".
+Software development in React and Node.
+Installation and configuration of different containerized Docker services (mongodb,Elasticsearch) on local servers.
+Configuration of database document models (mongoose, mongodb).
+Installation and configuration of a Self-Managed Gitlab as a Docker service (dockerfile) on a local VM.
+Configuration of different backup automations (Gitlab, virtualized document files) via cronjobs and rclone.
+Writing of Git / Gitlab docs.
+Writing of Docker / dockerfile docs.
+Writing of a documentation about the automated backup process.
+
+Technical environment: Gitlab, Docker, OVH, Terraform, AWS
+Experience type: work-and-study mission over 7 months.
+Installation of Self-Managed Gitlab as a docker service on a distant server (OVH).
+Trained senior developers to Git / Gitlab.
+Implementation of Gitlab pipelines for the continuous integration of changes on the TEST server.
+Comparative study of different DevOps technologies (Ansible, Terraform, Kubernetes) according to the needs of the company.
+Presentation and justification of the choices made.
+Trained at AWS CloudFormation, Lambda, S3 and EC2 over the course of a day.
+Installation and configuration of Terraform on the existing architecture.
+Experimented with Terraform and AWS Lambda (deployed a Node express web server on Lambda via Terraform).
+Writing of a Terraform documentation.
+
+* Fullstack Development ASP.NET / Angular
+Technical environment: ASP.NET Core MVC, Angular, OpenLayers.
+Experience type: work-and-study mission over the course of a year.
+Software development for a land-registry geolocation web application solution.
+
+* Fullstack development
+Technical environment: HTML, CSS, PHP
+Experience type: 2-months internship
+Development and deployement of a showcase website with PDF file uploader.
+
+* PowerShell System Administrator
+Technical environment: Powershell, Powershell ISE, Windows, IIS, Sharepoint.
+Experience type: 2-months internship
+Role management and error processing & reporting on the AD.

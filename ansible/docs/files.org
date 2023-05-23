@@ -1,0 +1,150 @@
+* files
+** examples
+*** ~file~
+
+File exists on host
+#+begin_src yaml
+  - name: touch file and set permissions
+    file:
+      path: /path/to/file
+      owner: user1
+      group: group1
+      mode: 0640
+      state: touch
+
+#+end_src
+
+Remove file on host
+#+begin_src yaml
+  - name: Make sure file does not exist
+    file:
+      dest: /path/to/file
+      state: absent
+
+#+end_src
+
+Modifying file attributes
+#+begin_src yaml
+  # works like chcon (SELinux sec context)
+  # could be undone by using restorecon
+  # see below for persistent changes
+  - name: SELinux type is set to samba_share_t
+    file:
+      path: /path/to/samba
+      setype: samba_share_t
+
+#+end_src
+
+*** ~sefcontext~
+
+Persistent SELinux file context change
+#+begin_src yaml
+  - name: SELinux type is persistent on samba_share_t
+    sefcontext:
+      target: /path/to/samba
+      setype: samba_share_t
+      state: present
+
+#+end_src
+
+*** ~copy~
+
+Copying and editing files on host
+#+begin_src yaml
+  - name: Copy file to host
+    copy:
+      src: /path/to/file
+      dest: /path/to/dir
+      owner: root
+      group: root
+      mode: 0644
+
+#+end_src
+
+*** ~fetch~
+
+Retrieve file from host
+#+begin_src yaml
+  - name: Fetch ssh keys
+    fetch:
+      src: "/home/{{ user }}/.ssh/id_rsa.pub"
+      dest: "files/keys/{{ user }}.pub"
+      flat: no # default, will append to dest
+
+#+end_src
+
+*** ~lineinfile~ ~blockinfile~
+
+Ensure specific line exists in file
+#+begin_src yaml
+  - name: Add a line of text to a file
+    lineinfile:
+      path: /path/to/file
+      line: 'Add this line to file'
+      state: present
+      
+#+end_src
+
+Add block of text to file
+#+begin_src yaml
+  - name: add additional lines to file
+    blockinfile:
+      path: /path/to/file
+      block: |
+        First line oo ee oo a a
+        Second line jang jang wla wla bang bang
+      state: present
+      # use marker: attrib to change markers on managed block vvvvv
+
+  ...result...
+
+  # BEGIN ANSIBLE MANAGED BLOCK
+  First line oo ee oo a a
+  Second line jang jang wla wla bang bang
+  # END ANSIBLE MANAGED BLOCK
+
+
+#+end_src
+
+*** ~stat~
+
+Similar to ~stat~ linux command, retrieves facts about file
+#+begin_src yaml 
+  - name: verify the checksum of a file
+    stat:
+      path: /path/to/file
+      checksum_algorithm: md5
+    register: result
+
+  - debug:
+      msg: "The checksum of the file is {{ result.stat.checksum }}"
+
+#+end_src
+
+You can use ~ansible-doc stat~ or make a play to see what is available on a file
+#+begin_src yaml
+  - name: Examine all stat output of /etc/passwd
+    hosts: all
+
+    tasks:
+      - name: Register stat output
+        stat:
+          path: /etc/passwd
+        register: results
+
+      - name: Display stat results
+        debug:
+          var: results
+#+end_src
+
+*** ~synchronize~
+
+~rsync~ must be installed on local and remote host
+localhost is the default node from where sync originates
+#+begin_src yaml
+  - name: sync local file to remote files
+    synchronize:
+      src: file
+      dest: /path/to/file
+
+#+end_src

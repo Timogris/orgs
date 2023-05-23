@@ -1,0 +1,56 @@
+---
+tasks:
+  - name: Install httpd
+    yum:
+      name: httpd
+      state: present
+
+  - name: Install or update httpd
+    yum:
+      name: httpd
+      state: latest
+
+  - name: Update all packages
+    yum:
+      name: '*'
+      state: latest
+
+  - name: Remove httpd
+    yum:
+      name: httpd
+      state: absent
+
+  - name: Install Development Tools
+    yum:
+      name: '@Development Tools' # GROUP INSTALL/REMOVE/UPDATE
+      state: present
+
+  - name: Inst perl AppStream module
+    yum:
+      name: '@perl:5.26/minimal'
+      state: present
+
+  # DO vvvvv
+  - name: Install the required packages on the web server
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Install the packages
+        yum:
+          name:
+            - httpd
+            - mod_ssl
+            - httpd-tools
+          state: present
+
+  # DON'T xxxxx
+  - name: Install the required packages on the web server
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Install the packages
+        yum:
+          name: "{{ item }}" # yum module will run 3 times
+          state: present
+        loop:
+          - httpd
+          - mod_ssl
+          - httpd-tools

@@ -1,0 +1,439 @@
+* Query users
+#+BEGIN_SRC bash
+cat /etc/passwd # only local users
+getent passwd # to work with LDAP, domain users
+getent group
+grep passwd /etc/nsswitch.conf # files sss (and possibly) ldap
+
+getent networks
+getent ports
+
+#+END_SRC
+getent looks for name-service name sources from differents databases.
+sss: System Security Subsystem
+
+#+begin_quote
+/etc/nsswitch.conf is a Linux configuration file that specifies how the system should switch between different name service providers. The file can be used to configure which services should be used for hostname lookup, password lookups, and so on.
+
+#+end_quote
+
+* Login scripts
+su - privilege escalation, no environment
+su -l - full login shell
+
+** Login shells
+looks in /etc/profile, /etc/profile.d, ~/.bash_profile, ~/.bashrc, /etc/bashrc
+
+** Non-login
+~/.bashrc, /etc/bashrc
+
+* Managing local users
+#+BEGIN_SRC bash
+id
+id timo
+id -G # group id nbs
+id -Gn # group names
+
+#+END_SRC
+
+** Passwords
+/etc/shadow
+
+~sudo grep user. /etc/shadow~
+user:pwd:passwd days since 1/1/1970:minimum days to keep pwd:nb of days of pwd life:nb of days of warning expiration:::
+by default, uses sha-512
+
+#+BEGIN_SRC bash
+echo 'timo:P4ssw0rd' | sudo chpasswd # best practice, no prompt
+echo P4ssw0rd | sudo passwd timo --stdin # works too
+
+pwconv
+pwunconv # use to convert pwds to shadows
+
+chage
+
+#+END_SRC
+
+** User creation defaults
+/etc/login.defs
+/etc/default/useradd
+sudo useradd -D
+** Modify account
+*** shells
+#+BEGIN_SRC bash
+chsh -l # list
+chsh -s /usr/bin/fish timo # change
+
+usermod -s /bin/bash timo
+usermod -c "Timo Gris" timo
+
+#+END_SRC
+
+
+*** delete acc
+#+BEGIN_SRC bash
+userdel -r timo
+find / -uid 1001 timo -delete
+
+#+END_SRC
+** Groups
+#+BEGIN_SRC bash
+newgrp
+gpasswd -a bob group
+gpasswd -M bob,timo,max group
+gpasswd -G wheel,root timo
+
+chgrp -R /var/www # recurse
+
+chmod g+s /var/www # apply special permissions, dir group is owners'
+#+END_SRC
+
+ /etc/gshadow
+
+* PAM, User Access
+Pluggable Authentification Module
+
+| *User login* | *PAM*    | *Session*         |
+|--------------+----------+-------------------|
+| ssh          | Auth     | Access to         |
+| login        | Limits   | resources         |
+| gui          | Home dir | Changing password |
+
+/etc/pam.d
+/lib64/security/pam_*
+
+** Create home dir by default with PAM
+batch create home dirs : /etc/login.defs
+install, start, enable ~oddjob~
+~sudo authconfig --enablemkhomedir --update~
+
+authconfig will make changes differents files to adjust the system accordingly.
+Ex: using authconfig to enable kerberos passwd auth will modify ~/etc/nsswitch.conf~ as well as ~/etc/krb5.conf~ among others.
+
+** Password policies
+/etc/pam.d/system-auth
+/etc/security/pwquality.conf
+Like the quality of the password
+~pwscore~
+
+** Limiting access
+~ulimit -a~
+~ulimit -u 10~ limits user access to 10 processes
+/etc/security/limits.conf
+
+** Login time restrictions
+/etc/pam.d/sshd
+~account required pam_time.so~
+
+/etc/security/time.conf
+
+* LDAP
+** Configuration of LDAP server
+#+begin_src bash
+  firewall-cmd --permanent --add-service=ldap
+  firewall-cmd --reload
+
+  ### install ldap
+  yum install -y openldap openldap-clients openldap-servers migrationtools nss-pam-ldap
+  yum install oddjob* # auto-creation of user home dir
+
+  systemctl start oddjobd
+  systemctl enable oddjobd
+
+  cp /usr/share/openldap-servers/DB_CONFIG.example /var/lib/ldap/DB_CONFIG
+
+  slaptest -u # generate db file
+
+  chown ldap.ldap /var/lib/ldap/*
+
+  systemctl start slapd
+  systemctl enable slapd
+  systemctl status slapd
+
+  netstat -ltn # listening ports, 386 in example
+
+  cd /etc/openldap/schema
+  ldapadd -Y EXTERNAL -H ldapi:/// -D "cn=config" -f cosine.ldif # no idea what this does
+  ldapadd -Y EXTERNAL -H ldapi:/// -D "cn=config" -f nis.ldif # these are similar to REG entries in DOS
+
+  slappasswd -s psswrrrrd -n > rootpwd
+  cat rootpwd
+
+  # create config.ldif
+
+  ldapmodify -Y EXTERNAL -H ldapi:/// -f config.ldif # this will modify those "REG entries"
+
+
+#+end_src
+
+#+begin_src conf
+  # config.ldif
+  dn: olcDatabase={2}hdb,cn=config
+  changetype: modify
+  replace: olcSuffix
+  olcSuffix: dc=example,dc=com
+
+  dn: olcDatabase={2}hdb,cn=config
+  changetype: modify
+  replace: olcRootDN
+  olcRootDN: dc=Manager,dc=example,dc=com
+
+  dn: olcDatabase={2}hdb,cn=config
+  changetype: modify
+  replace: olcRootPW
+  olcRootPW: <rootpwd output>
+
+  dn: cn=config 
+  changetype: modify
+  replace: olcLogLevel
+  olcLogLevel: 0
+
+  dn: olcDatabase={1}monitor,cn=config
+  changetype: modify
+  replace: olcAccess
+  olcAccess: {0}to * by dn.base="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" read by dn.base="cn=Manager,dc=example,dc=com" read by * none
+
+#+end_src
+
+** Creating the dir structure
+#+begin_src bash
+  ldapadd -x -W -D "cn=Manager,dc=example,dc=com" -f structure.ldif
+
+  # this queries db for newly created structure
+  # as Manager from example.com
+  # queries example.com server
+  ldapsearch -x -W -D "cn=Manager,dc=example,dc=com" -b "dc=example,dc=com" -s sub "(objectclass=organizationalUnit)"
+#+end_src
+
+#+begin_src conf
+  # structure.ldif
+  dn: dc=example,dc=com
+  dc: example
+  objectClass: top
+  objectClass: domain
+
+  dn: ou=people,dc=example,dc=com # defined in config.ldif
+  ou: people
+  objectClass: top
+  objectClass: organizationalUnit
+
+  dn: ou=group,dc=example,dc=com
+  ou: group
+  objectClass: top
+  objectClass: organizationalUnit
+
+#+end_src
+
+** adding groups and users
+#+begin_src bash
+  ldapadd -x -W -D "cn=Manager,dc=example,dc=com" -f group.ldif
+
+  # edit /usr/share/migrationtools/migrate_common.ph
+  # change DNS and base settings
+  #
+  # $DEFAULT_MAIL_DOMAIN = "example.com"; # set in config.ldif
+  #
+  # $DEFAULT_BASE = "dc=example,dc=com";
+
+  grep timo /etc/passwd > $HOME/passwd # existing example user
+
+  /usr/share/migrationtools/migrate_passwd.pl $HOME/passwd user.ldif # this will create ldif file
+
+  # edit the user.ldif file to match config
+  # uid/gidNumber can be set to 4000 to not be confused with local users (1000)
+  # change homeDirectory
+  # change dn,uid,cn,gecos for different users
+
+  ldapadd -x -W -D "cn=Manager,dc=example,dc=com" -f user.ldif
+  
+#+end_src
+
+#+begin_src conf
+  # group.ldif
+  dn: cn=ldapusers,ou=group,dc=example,dc=com
+  objectClass: posixGroup
+  cn: ldapusers
+  gidNumber: 4000      
+
+#+end_src
+
+** implementing auth
+#+begin_src bash
+  authconfig-tui
+  # check LDAP
+  # check LDAP Authentication
+  # Server: ldap://server1.example.com
+
+  ### or
+
+  authconfig --enableldap --ldapserver=server1.example.com --ldapbasedn="dc=example,dc=com" --enablemkhomedir --update
+
+  grep passwd /etc/nsswitch.conf # should return a ldap entry
+  
+#+end_src
+
+** querying (listing) users & groups
+#+begin_src bash
+  ### RAPPEL
+  getent passwd # lists users
+  getent group # lists groups
+
+  grep ldap /etc/nsswitch.conf # returns where ldap is enabled
+
+  # we can query the server without auth
+  # use -LLL for query results only (no metadata)
+  ldapsearch -x -H ldap://server1.example.com -b dc=example,dc=com "(&(objectclass=account)(uid=timo))" uidNumber uid
+  # will return only uidNumber and uid informations
+
+  # you can append to file to use and create a new user
+  # dont forget to change name and increment uidNumber by 1
+  ldapsearch -x -H ldap://server1.example.com -b dc=example,dc=com "(&(objectclass=account)(uid=timo))" > user.ldif
+  ldapadd -x -W -D cn=Manager,dc=example,dc=com -f user.ldif
+  getent passwd
+  
+#+end_src
+
+* Kerberos
+** Configure NTP time service
+*** server1
+#+begin_src bash
+  yum install -y ntp
+  vi /etc/ntp.conf
+
+  systemctl enable ntpd
+  systemctl start ntpd
+
+  ntp -q # display peers currently synchronizing
+  firewall-cmd --add-service=ntp --permanent
+  firewall-cmd --reload
+
+  vi /etc/hosts # add both machines in example
+
+#+end_src
+
+#+begin_src conf
+  ### /etc/ntp.conf
+  # put your network
+  restrict 192.168.1.0 mask 255.255.255.0 nomodify notrap
+
+#+end_src
+
+#+begin_src conf
+  ### /etc/hosts
+  192.168.1.1 server1 server1.example.com
+  192.168.1.2 server2 server2.example.com
+
+#+end_src
+
+*** server2
+#+begin_src bash
+  yum install -y ntp
+  vi /etc/ntp.conf # remove pool.ntp entries, keep 1 as fallback
+  # add line in entries, so server2 sync with server1
+  # server server1.example.com iburst prefer
+
+  systemctl enable ntpd
+  systemctl start ntpd
+
+  ntpq -p
+
+#+end_src
+
+** Install and configure KDC (Key Distribution Center)
+#+begin_src bash
+  ### server1
+  yum install -y rng-tools
+
+  vi /usr/lib/systemd/system/rngd.service
+  # change Service entry to
+  # ExecStart=/sbin/rngd -f -r /dev/urandom
+
+  systemctl start rngd
+  systemctl daemon-reload
+
+  yum install -y krb5-server krb5-workstation pam_krb5
+
+  vi /var/kerberos/krb5kdc/kdc.conf
+  # edit EXAMPLE.COM to match your system
+
+  vi /var/kerberos/kb5kdc/kadm5.acl
+  # edit EXAMPLE.COM to match your system  
+
+  vi /etc/krb5.conf
+  # uncomment or edit [realms] section
+  # kdc = server1.example.com
+  # admin_server = server1.example.com
+  # edit/uncomment [domain_realm] to match config
+
+  kdb5_util create -s -r EXAMPLE.COM
+
+  systemctl start krb5kdc kadmin # starts both
+
+#+end_src
+
+** Enable SSH kerberos auth
+*** Principals
+#+begin_src bash
+  netstat -ltn
+
+  firewall-cmd --add-service=kpasswd --permanent
+  firewall-cmd --add-service=kerberos --permanent
+  firewall-cmd --add-port=749/tcp --permanent # your port
+  firewall-cmd --reload
+
+  kadmin.local # auth as kadmin.local
+  listprincs
+
+  addprinc root/admin # adds root user to admin@EXAMPLE.COM
+  addprinc tux # creates tux@EXAMPLE.com princ
+  addprinc -randkey host/server1.example.com
+
+  # needs ktab file
+  ktadd host/server1.example.com
+
+  quit
+
+#+end_src
+
+*** SSH Auth
+#+begin_src bash
+  vi /etc/ssh/ssh_config
+  # uncomment GSSAPIAuthentication and GSSAPIDelegate* and put yes
+
+  systemctl reload sshd
+  authconfig --enablekrb5 --update
+
+  klist # no token
+  kinit # asks for password configured in krb5.conf
+  klist # token
+  kdestroy # no token
+
+#+end_src
+
+** Add orther Kerberos clients
+*On client host*
+#+begin_src bash
+  ### add server and client hosts to /etc/hosts
+
+  yum install -y krb5-workstation pam_krb5
+
+  # copy existing conf
+  scp tux@server1.example.com:/etc/krb5.conf /etc
+
+  kadmin
+  addprinc -randkey host/server2.example.com
+  ktadd host/server2.example.com
+  quit
+
+  # uncomment GSSAPIAuth* and GSSAPIDeleg*
+  vi /etc/ssh/ssh_config
+
+  # enable auth via TUI, check [] Use Kerberos
+  authconfig-tui
+
+  systemctl reload sshd
+  
+
+#+end_src
+
+Client can now ~kinit~ and ~ssh~, and auth from kerberos server.

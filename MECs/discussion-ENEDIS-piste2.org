@@ -1,0 +1,20 @@
+* Discussion avec Joseph BAREILLLE, ENEDIS Piste #2
+Remplacement sur une mission Linky, IoT
+
+AWS, Kub, ansible, jenkins, docker, kafka, 
+
+Fluidifier les echanges, ils cherchent un techlead? 2 anciens 2 new gen mais ils sont sympa
+
+Integrer equipe infra (entre metier, back, et autres)
+mettre a jour des images dockers
+deployer un nouvel outil ansible
+developper un truc aws
+tickets jira
+
+9h30 ou on fait du kanban
+
+pousser du scrum justement
+
+quest ce que tu as fait / quest ce que tu aurais fait de différent
+
+binome de knowledge transfer

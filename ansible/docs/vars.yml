@@ -1,0 +1,103 @@
+# hosts
+- hosts: all
+  vars:
+    user: timo
+    home: /home/timo
+
+# vars file
+- hosts: all
+  vars_files:
+    - vars/users.yml
+# users.yml v
+user: timo
+home: /home/timo
+
+# vars in playbooks
+vars:
+  user: timo
+
+tasks:
+- name: Create the user {{ user }}
+  user:
+    name: "{{ user }}"
+
+
+# host,group variables
+# host
+[servers]
+demo.example.com  ansible_user=timo
+
+# group
+[servers]
+demo1.example.com
+demo2.example.com
+
+[servers:vars]
+user=timo
+
+# nested, bad practice
+[servers1]
+demo1.example.com
+demo2.example.com
+
+[servers2]
+demo3.example.com
+demo4.example.com
+
+[servers:children]
+servers1
+servers2
+
+[servers:vars]
+user=timo
+
+
+# best practice is to use group_vars & host_vars
+
+[servers1]
+demo1.example.com
+demo2.example.com
+
+[servers2]
+demo3.example.com
+demo4.example.com
+
+[servers:children]
+servers1
+servers2
+
+# group_vars/servers v
+user: joe
+
+# group_vars/servers1 v
+package: httpd
+
+#host_vars/demo3.example.com v
+package: apache
+
+# structure:
+# +--ansible.cfg
+# +--groupe_vars
+# |  +--servers
+# |  +--servers1
+# |  +--servers2
+# +--host_vars
+# |  +--demo1.example.com
+# |  +--demo2.example.com
+# +--inventory
+# +--playbook.yml
+
+# CLI
+ansible-playbook main.yml -e "package=apache"
+
+# arrays
+users:
+  user1:
+    first_name: timo
+    last_name: gris
+  user2:
+    first_name: ari
+    last_name: monti
+
+# returns 'timo'
+users['user1']['first_name']

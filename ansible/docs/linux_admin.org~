@@ -1,0 +1,279 @@
+* Linux administration in Ansible
+** package management
+
+Simple package management
+#+begin_src yaml
+  tasks:
+  - name: Install httpd
+    yum:
+      name: httpd
+      state: present
+
+  - name: Install or update httpd
+    yum:
+      name: httpd
+      state: latest
+
+  - name: Update all packages
+    yum:
+      name: '*'
+      state: latest
+
+  - name: Remove httpd
+    yum:
+      name: httpd
+      state: absent
+
+  - name: Install Development Tools
+    yum:
+      name: '@Development Tools' # GROUP INSTALL/REMOVE/UPDATE
+      state: present
+
+  - name: Inst perl AppStream module
+    yum:
+      name: '@perl:5.26/minimal'
+      state: present
+#+end_src
+
+Gathering package facts
+#+begin_src yaml
+  # GATHER PACKAGE FACTS WITH MODULE
+  - name: Gather package facts
+    package_facts:
+      manager: auto
+      
+  - debug:
+      var: ansible_facts.packages
+#+end_src
+  
+Optimize multiple installations
+#+begin_src yaml
+  # DO vvvvv
+  - name: Install the required packages on the web server
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Install the packages
+        yum:
+          name:
+            - httpd
+            - mod_ssl
+            - httpd-tools
+          state: present
+
+  # DON'T xxxxx
+  - name: Install the required packages on the web server
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Install the packages
+        yum:
+          name: "{{ item }}" # yum module will run 3 times
+          state: present
+        loop:
+          - httpd
+          - mod_ssl
+          - httpd-tools
+#+end_src
+  
+Install package unconditionnally of distro
+#+begin_src yaml
+  # UNCONDITIONAL
+  - name: Install httpd on all systems
+    package: # yum, dnf, apt, zypper
+      name: httpd
+      state: latest
+
+#+end_src
+
+Declare custom YUM repo with GPG signature
+#+begin_src yaml
+  # DECLARING YUM REPO
+  - name: Configure company Yum repo
+    hosts: servera.lab.example.com
+    tasks:
+      - name: Ensure example repo exists
+        yum_repository:
+          # file to be created in /etc/yum.repos.d/
+          file: example # will append into example.repo
+          name: example-internal
+          description : Example Inc. Internal YUM repo
+          baseurl: http://materials.example.com/yum/repository
+          enabled: yes
+          gpgcheck: yes
+          state: present # deletes repo file if set to 'absent'
+
+  # DEPLOYING GPG KEY FOR SAID REPO
+  - name: Deploy GPG pub key
+    rpm_key:
+      key: http://materials.example.com/yum/repository/RPM-GPG-KEY-example
+      state: present
+
+#+end_src
+
+** user & auth
+User module example with ssh key generation
+#+begin_src yaml
+  - name: Add user, assign shell, and append to groups
+    user:
+      name: devops_user
+      shell: /bin/bash
+      # group: wheel # primary group
+      groups: sys_admins, developers
+      append: yes # !\\ 'no' will overwrite groups
+      generate_ssh_key: yes # will not overwrite
+      ssh_key_bits: 2048
+      ssh_key_file: .ssh/id_my_rsa
+      home: /home/devops_user
+      create_home: yes
+
+#+end_src
+Get more about return values in of the user module in the [[http://docs.ansible.com/ansible/2.9/modules/user_module.html#user-module][Ansible documentation:Users]].
+** groups
+Needs packages ~groupadd~, ~groupdel~, ~groupmod~. For windows, use ~win_group~ module.
+
+#+begin_src yaml
+  - name: Verify that auditors group exists
+    group:
+      name: auditors
+      state: present
+      # gid:
+      # local: [cmd]
+      # system: yes # will create system group
+
+#+end_src
+
+** known hosts
+Lets you add or remove host keys from the ~known_hosts~ file of the managed host.
+#+begin_src yaml
+  - name: copy host keys to remote servers
+    known_hosts:
+      path: /etc/ssh/ssh_known_hosts
+      name: host1
+      key: "{{ lookup('file', 'pubkeys/host1') }}"
+
+#+end_src
+
+** authorized keys
+Manage authorized SSH keys per user account
+#+begin_src yaml
+  - name: Set authorized keys
+    authorized_key:
+      user: timo
+      state: present
+      key: "{{ lookup('file', '/home/timo/.ssh/id_rsa.pub') }}"
+
+#+end_src
+
+** (re)boot & scheduled processes
+*** Scheduling with ~at~
+Quick one-time scheduling. Create the job for a future time to run and it is held until that time.
+Accepts 6 args:
+- count :: must work with units
+- units :: minutes/hours/days/weeks
+- command :: command to run
+- script_file :: script to run
+- state :: absent,present
+- unique :: will not run if a job is already running
+
+#+begin_src yaml
+  # at example
+  - name: remove tempuser
+    at:
+      command: userdel -r tempuser
+      count: 20
+      units: minutes
+      unique: yes
+
+#+end_src
+
+*** Appending with ~cron~
+Jobs scheduled task. Will append commands into the crontab of the designated user.
+Common args:
+- special_time :: reboot,yearly,annually,monthly,weekly,daily,hourly
+- state :: absent,present  sets or remove command from crontab
+- cron_file
+- backup :: yes,no  backs up the crontab prior to edition
+
+Below example runs a date job Monday through Friday every 2 minutes between 09:00 and 16:59 as user devops and on custom crontab file /etc/cron.d/add-date-time.
+#+begin_src yaml
+  tasks:
+    - name: datetime cronjob
+      user: devops
+      minutes: "*/2"
+      hours: 9-16
+      weekday: 1-5
+      cron_file: /etc/cron.d/add-date-time
+      job: date >> /home/devops/my_date_time_cron_job
+      state: present
+
+#+end_src
+
+Below example runs custom cache:clear command every morning at 11:45.
+#+begin_src yaml
+  - cron:
+      name: "Flush Bolt" # useful when creating/removing cron entries with state
+      user: "root"
+      minute: 45
+      hour: 11
+      job: "php ./app/nut cache:clear"
+
+#+end_src
+
+
+*** Managing services with ~systemd~ and ~service~
+Init daemon is being replaced by systemd so systemd is more and more the better option.
+
+#+begin_src yaml
+  # systemd example
+  - name: reload web server
+    systemd:
+      name: apache2
+      state: reloaded # started,stopped,restarted,reloaded
+      daemon-reload: yes
+
+#+end_src
+
+*** ~reboot~ module
+Safer than using ~shell~ or ~command~ module. While a play is running, the module will shut down the managed host and wait until it is back up again prior to carrying on with the play.
+
+#+begin_src yaml
+  - name: "Reboot host"
+    reboot:
+      reboot_timeout: 180 # time between reboot command and test command (state check)
+
+  - name: force a quick reboot
+    reboot: # valid
+
+#+end_src
+
+** ~shell~ & ~command~
+~command~ is more secure because it does not interact with the user's env. However, env vars will not be available.  
+
+#+begin_src yaml
+  - name: run templated variable
+    shell: cat {{ myfile | quote }} # always pipe quote to avoid injection
+
+#+end_src
+
+#+begin_src yaml
+  - name: this command only
+    command: /usr/bin/scrape_logs.py arg1 arg2
+    args:  # pass arguments into the script
+      chdir: scripts/
+      creates: /path/to/script
+
+#+end_src
+
+You can still access env vars by gathering env facts about the managed host.
+#+begin_src yaml
+  ---
+  - name: print env facts
+    hosts: all
+    vars:
+      local_shell: "{{ ansible_env }}"
+
+    tasks:
+      - name: print all gathered env vars
+        debug:
+          var: local_shell
+
+#+end_src
